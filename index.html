@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gameplanet Inventario v1.4.0</title>
+    <title>Gameplanet Inventario v1.4.1</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -26,6 +26,7 @@
         .grid-adj { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
         .btn-adj { padding: 10px; font-weight: bold; border-radius: 6px; border: 1px solid #ddd; background: #f9f9f9; }
         .btn-def-box { display: grid; grid-template-columns: 1fr 2fr; gap: 8px; grid-column: span 2; }
+        .tag { font-size: 11px; background: #eee; padding: 2px 6px; border-radius: 4px; color: #555; font-weight: bold; margin-right: 4px; }
     </style>
 </head>
 <body>
@@ -33,7 +34,7 @@
     <audio id="bip" preload="auto"><source src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" type="audio/mpeg"></audio>
 
     <div id="scr-login" class="screen active">
-        <h2 style="text-align:center; color:var(--blue); margin-top:40px;">Gameplanet <small>v1.4.0</small></h2>
+        <h2 style="text-align:center; color:var(--blue); margin-top:40px;">Gameplanet <small>v1.4.1</small></h2>
         <div class="card">
             <input type="text" id="l-u" placeholder="Usuario (ID)">
             <input type="password" id="l-p" placeholder="Contraseña">
@@ -86,7 +87,7 @@
             <option value="faltante">Faltantes (🔴)</option>
             <option value="sobrante">Sobrantes (🟠)</option>
         </select>
-        <input type="text" id="q-gest" placeholder="Filtrar..." oninput="buscarGestion()">
+        <input type="text" id="q-gest" placeholder="Filtrar por nombre o plataforma..." oninput="buscarGestion()">
         <div id="res-gest"></div>
     </div>
 
@@ -124,7 +125,7 @@
     </div>
 
     <script>
-        const API = "https://script.google.com/macros/s/AKfycbyks9D0Cs0xinZNRLw2xgmgwvZWFROgJ_DkTsgsKI8JMPqNTVa5p-dEwIrsT32NqFJjHQ/exec"; 
+        const API = "https://script.google.com/macros/s/AKfycbw9CVeezGB3zUWlJtcEoOX9iyoy7fES1mwuyPDX-HIMWmZK36Z_JGBa9ixpVtkhkbzTPg/exec"; 
         const zxingReader = new ZXing.BrowserMultiFormatReader();
         let tiendaActual = "", escaneando = false, modoScan = "", upcPendiente = "", miRol = "", camState = true;
         let historial = [];
@@ -146,7 +147,7 @@
                 document.getElementById('txt-t').innerText = d.tienda;
                 if(miRol === "Gerente") document.getElementById('area-gerente').style.display = 'block';
                 irA('scr-menu');
-            } else alert("Error");
+            } else alert("Error de acceso");
         }
 
         async function registro(){
@@ -182,12 +183,9 @@
         async function procesarScan(upc){
             if(!upc) return;
             document.getElementById('bip').play().catch(()=>{}); 
-            
             let upcString = String(upc).trim();
             const esUsadoChecked = document.getElementById('chk-u').checked;
 
-            // --- LÓGICA DE CORRECCIÓN DE "0" INICIAL ---
-            // Si el código tiene 12 o 13 dígitos y empieza con 0, lo limpiamos
             let cleanUPC = upcString;
             if (upcString.startsWith('0') && (upcString.length === 12 || upcString.length === 13)) {
                 cleanUPC = upcString.substring(1);
@@ -205,7 +203,7 @@
                 document.getElementById('scan-res').innerHTML = `
                     <div class="card" style="border-left:10px solid ${color}">
                         <b>${d.item.nombre}</b><br>
-                        <span style="color:var(--green); font-weight:bold;">$${d.item.precio}</span><br>
+                        <span class="tag">${d.item.plataforma}</span> <span style="color:var(--green); font-weight:bold;">$${d.item.precio}</span><br>
                         Fis: ${d.item.fisico} / Sist: ${d.item.sistema}
                     </div>`;
                 
@@ -236,8 +234,8 @@
             document.getElementById('res-busc').innerHTML = d.data.map(it => `
                 <div class="card">
                     <b>${it.nombre}</b><br>
-                    <span style="color:var(--green); font-weight:bold;">$${it.precio}</span> | ${it.plataforma}<br>
-                    <small>Sist: ${it.sistema} | Fis: ${it.fisico}</small>
+                    <span class="tag">${it.plataforma}</span> <span style="color:var(--green); font-weight:bold;">$${it.precio}</span><br>
+                    <small>Sist: ${it.sistema} | Fis: ${it.fisico} | UPC: ${it.upc}</small>
                 </div>`).join('');
         }
 
@@ -249,7 +247,11 @@
                 return `
                 <div class="card" style="border-left:8px solid ${color}">
                     <b onclick="editarTotal('${it.upc}', '${it.nombre}')" style="color:var(--blue); text-decoration:underline;">${it.nombre}</b><br>
-                    <span style="font-weight:bold; color:var(--green)">$${it.precio}</span><br>
+                    <div style="margin: 5px 0;">
+                        <span class="tag" style="background:var(--blue); color:white;">${it.plataforma}</span>
+                        <span class="tag">UPC: ${it.upc}</span>
+                        <span style="font-weight:bold; color:var(--green)">$${it.precio}</span>
+                    </div>
                     <small>Sist: ${it.sistema} | Fis: ${it.fisico} | Def: ${it.defectos}</small>
                     <div class="grid-adj">
                         <button class="btn-adj" onclick="ajustar('${it.upc}', -1, 'fisico')">-1 Físico</button>
@@ -282,7 +284,8 @@
             const d = await r.json();
             document.getElementById('res-alias').innerHTML = d.data.map(it => `
                 <div class="card" style="color:black;" onclick="ligarAlias('${it.upc}')">
-                    <b>${it.nombre}</b><br><small style="color:var(--orange)">UPC: ${it.upc}</small>
+                    <b>${it.nombre}</b><br>
+                    <span class="tag">${it.plataforma}</span> <small style="color:var(--orange)">UPC: ${it.upc}</small>
                 </div>`).join('');
         }
 

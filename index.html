@@ -6,11 +6,13 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Gameplanet Inventario v1.4.3 - Audio Fixed</title>
+    <title>Inventario MAGC v1.8.1</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
     <style>
       :root {
         --blue: #004a99;
@@ -69,6 +71,10 @@
         transform: scale(0.98);
         opacity: 0.9;
       }
+      .btn:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
       input,
       select {
         width: 100%;
@@ -80,6 +86,7 @@
         font-size: 16px;
       }
 
+      /* Cámara - Animación 100% fluida usando Transform (Hardware Acceleration) */
       #cam-box {
         display: none;
         position: fixed;
@@ -104,24 +111,25 @@
       }
       .scanner-line {
         position: absolute;
-        top: 50%;
+        top: 0;
         left: 0;
         width: 100%;
         height: 2px;
         background: var(--red);
-        box-shadow: 0 0 8px var(--red);
-        animation: scanMove 2s infinite;
+        box-shadow: 0 0 10px var(--red);
+        animation: scanMove 1.5s linear infinite;
         z-index: 110;
+        will-change: transform;
       }
       @keyframes scanMove {
         0% {
-          top: 20%;
+          transform: translateY(10px);
         }
         50% {
-          top: 80%;
+          transform: translateY(28vh);
         }
         100% {
-          top: 20%;
+          transform: translateY(10px);
         }
       }
 
@@ -167,6 +175,40 @@
         margin-right: 4px;
       }
 
+      /* Firmas */
+      .canvas-firma {
+        border: 1px dashed #aaa;
+        background: #fff;
+        width: 100%;
+        height: 100px;
+        touch-action: none;
+        border-radius: 8px;
+        margin-top: 10px;
+      }
+      .firma-box {
+        margin-bottom: 20px;
+        padding: 10px;
+        border: 1px solid #eee;
+        border-radius: 8px;
+        background: #fafafa;
+      }
+
+      /* Utilidades PDF Historial */
+      .hist-btn-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+      }
+      .hist-btn-group button {
+        flex: 1;
+        padding: 10px;
+        border-radius: 6px;
+        border: none;
+        font-weight: bold;
+        color: white;
+        cursor: pointer;
+      }
+
       .resumen-img {
         width: 100%;
         max-width: 250px;
@@ -201,29 +243,6 @@
     </style>
   </head>
   <body>
-    <div
-      id="progress-container"
-      style="
-        display: none;
-        position: fixed;
-        top: 0;
-        width: 100%;
-        height: 8px;
-        background: #ddd;
-        z-index: 2000;
-      "
-    >
-      <div
-        id="progress-bar"
-        style="
-          width: 0%;
-          height: 100%;
-          background: var(--red);
-          transition: 0.3s;
-        "
-      ></div>
-    </div>
-
     <audio id="bip" preload="auto">
       <source
         src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3"
@@ -233,7 +252,7 @@
 
     <div id="scr-login" class="screen active">
       <h2 style="text-align: center; color: var(--blue); margin-top: 40px">
-        Gameplanet <small>v1.4.3</small>
+        Inventario <small>v1.8.1</small>
       </h2>
       <div class="card">
         <input type="text" id="l-u" placeholder="Usuario (ID)" />
@@ -257,10 +276,17 @@
     <div id="scr-reg" class="screen">
       <h3>Crear Cuenta</h3>
       <div class="card">
-        <input type="text" id="r-u" placeholder="ID" />
+        <input type="text" id="r-u" placeholder="ID de Empleado" />
         <input type="password" id="r-p" placeholder="Contraseña" />
-        <input type="text" id="r-n" placeholder="Nombre" />
-        <input type="text" id="r-t" placeholder="Sucursal" />
+        <input type="text" id="r-n" placeholder="Nombre Completo" />
+        <input type="number" id="r-t" placeholder="No. de Tienda (Ej: 21)" />
+        <input type="text" id="r-c" placeholder="Clave Sucursal (Ej: ARAG)" />
+        <input
+          type="text"
+          id="r-nt"
+          placeholder="Nombre Tienda (Ej: Multiplaza Aragon)"
+        />
+        <input type="text" id="r-d" placeholder="Distrito (Ej: Dt1, Dt2...)" />
         <button class="btn" onclick="registro()">REGISTRAR</button>
         <button
           onclick="irA('scr-login')"
@@ -308,6 +334,7 @@
           🔎<br />Detalle
         </div>
       </div>
+
       <div id="area-gerente" style="display: none">
         <button
           class="btn"
@@ -315,6 +342,20 @@
           onclick="irA('scr-gest')"
         >
           ⚙️ GESTIÓN DE INVENTARIO
+        </button>
+        <button
+          class="btn"
+          style="background: var(--green); margin-top: 10px"
+          onclick="abrirFirmas()"
+        >
+          ✍️ FIRMAR Y CARÁTULA
+        </button>
+        <button
+          class="btn"
+          style="background: var(--dark); margin-top: 10px"
+          onclick="abrirHistorial()"
+        >
+          📁 HISTORIAL DE REPORTES
         </button>
       </div>
       <input type="file" id="f-in" hidden accept=".xlsx,.xls,.csv" />
@@ -325,6 +366,25 @@
       >
         Cerrar Sesión
       </button>
+    </div>
+
+    <div id="scr-historial" class="screen">
+      <button
+        onclick="irA('scr-menu')"
+        style="
+          margin-bottom: 15px;
+          width: auto;
+          padding: 8px 15px;
+          background: #666;
+          border: none;
+          color: white;
+          border-radius: 5px;
+        "
+      >
+        ⬅️ Volver
+      </button>
+      <h3>Historial de Carátulas (Último mes)</h3>
+      <div id="lista-historial">Cargando...</div>
     </div>
 
     <div id="scr-busc" class="screen">
@@ -380,11 +440,60 @@
       <div id="res-gest"></div>
       <button
         class="btn"
-        style="background: var(--dark); margin-top: 20px"
+        style="background: var(--dark); margin-top: 10px"
         onclick="generarFinal()"
       >
-        FINALIZAR INVENTARIO
+        VER RESUMEN VISUAL
       </button>
+    </div>
+
+    <div id="scr-firmas" class="screen">
+      <button
+        onclick="irA('scr-menu')"
+        style="
+          margin-bottom: 15px;
+          width: auto;
+          padding: 8px 15px;
+          background: #666;
+          border: none;
+          color: white;
+          border-radius: 5px;
+        "
+      >
+        ⬅️ Volver
+      </button>
+      <div class="card">
+        <h3>Firmar Carátula</h3>
+        <p>
+          <small
+            >Sucursal: <span id="f-suc"></span> | Tienda:
+            <span id="f-num"></span
+          ></small>
+        </p>
+        <div id="lista-firmas"></div>
+        <button
+          class="btn"
+          id="btn-pdf"
+          style="display: none; background: var(--blue)"
+          onclick="generarCaratulaPDF()"
+        >
+          GENERAR PDF Y FINALIZAR
+        </button>
+        <div
+          id="notif-final"
+          style="
+            display: none;
+            background: #d4edda;
+            color: #155724;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #c3e6cb;
+            margin-top: 15px;
+            text-align: center;
+            font-weight: bold;
+          "
+        ></div>
+      </div>
     </div>
 
     <div id="scr-final" class="screen" style="text-align: center">
@@ -477,12 +586,14 @@
           onkeypress="if(event.key==='Enter') procesarScan(this.value)"
         />
         <div id="scan-res"></div>
+
         <div style="margin-top: 15px">
           <h4
             style="
               margin: 0 0 5px 0;
               border-bottom: 1px solid #ccc;
               font-size: 14px;
+              padding-bottom: 5px;
             "
           >
             Últimos 5 escaneos
@@ -529,19 +640,150 @@
       </button>
     </div>
 
+    <div id="pdf-molde" style="display: none">
+      <div
+        style="
+          width: 750px;
+          background: white;
+          padding: 40px;
+          color: black;
+          font-family: Arial, sans-serif;
+          box-sizing: border-box;
+        "
+      >
+        <div
+          style="
+            text-align: center;
+            border-bottom: 3px solid #004a99;
+            padding-bottom: 10px;
+          "
+        >
+          <h2 style="margin: 0; font-size: 20px; color: #555">
+            CARÁTULA DE INVENTARIO SEMANAL
+          </h2>
+        </div>
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            margin-top: 25px;
+            font-size: 14px;
+            line-height: 1.6;
+          "
+        >
+          <div>
+            <p><b>Sucursal:</b> <span id="pdf-suc"></span></p>
+            <p><b>No. Tienda:</b> <span id="pdf-num"></span></p>
+            <p><b>Tienda:</b> <span id="pdf-nom"></span></p>
+          </div>
+          <div style="text-align: right">
+            <p><b>Fecha:</b> <span id="pdf-fecha"></span></p>
+            <p><b>Distrito:</b> <span id="pdf-dist"></span></p>
+          </div>
+        </div>
+        <table
+          style="
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 25px;
+            font-size: 11px;
+          "
+        >
+          <thead>
+            <tr style="background: #004a99; color: white">
+              <th
+                style="border: 1px solid #ddd; padding: 10px; text-align: left"
+              >
+                UPC
+              </th>
+              <th
+                style="border: 1px solid #ddd; padding: 10px; text-align: left"
+              >
+                PRODUCTO
+              </th>
+              <th
+                style="
+                  border: 1px solid #ddd;
+                  padding: 10px;
+                  text-align: center;
+                "
+              >
+                SISTEMA
+              </th>
+              <th
+                style="
+                  border: 1px solid #ddd;
+                  padding: 10px;
+                  text-align: center;
+                "
+              >
+                FÍSICO
+              </th>
+              <th
+                style="
+                  border: 1px solid #ddd;
+                  padding: 10px;
+                  text-align: center;
+                "
+              >
+                DIF
+              </th>
+            </tr>
+          </thead>
+          <tbody id="pdf-tabla-body"></tbody>
+        </table>
+
+        <div
+          style="
+            margin-top: 30px;
+            padding: 15px;
+            border: 2px solid #ccc;
+            background: #fafafa;
+            font-size: 14px;
+            font-weight: bold;
+          "
+        >
+          <p style="margin: 5px 0">DEFECTOS: $0</p>
+          <p style="margin: 5px 0">
+            PÉRDIDA/FALTANTE: $<span id="pdf-tot-per">0</span>
+          </p>
+          <p style="margin: 5px 0">SOBRANTE: $0</p>
+        </div>
+
+        <div
+          style="
+            margin-top: 50px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+          "
+          id="pdf-firmas-grid"
+        ></div>
+      </div>
+    </div>
+
     <script>
+      // AQUÍ PON TU URL DE GOOGLE APPS SCRIPT (Asegúrate de poner la de la "Nueva Implementación")
       const API =
-        "https://script.google.com/macros/s/AKfycbyLBtWGckJxjLjORgydsWSQQtOLL3x5QECHi1QLmEPYAfv8XnxSVcdm2rSl9ZdJt8e5uA/exec";
-      const zxingReader = new ZXing.BrowserMultiFormatReader();
+        "https://script.google.com/macros/s/AKfycbw1QTdI2_4-y9HgVw4G7heIs4dWwyJZqt3-8LMF-TT1iL9CF4hMfSD2toAHHQZQbFdyNA/exec";
+
+      // Optimizado para cámaras tipo iPhone
+      const hints = new Map();
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+      const zxingReader = new ZXing.BrowserMultiFormatReader(hints);
+
       let tiendaActual = "",
         escaneando = false,
         modoScan = "",
         upcPendiente = "",
         miRol = "",
         camState = true;
-      let historial = [];
-      let audioActual = null;
-      let muted = false;
+      let historial = [],
+        datosLogin = {},
+        firmasCapturadas = {},
+        reportesCargados = [];
+      let audioActual = null,
+        muted = false;
 
       const AUDIO_LINKS = {
         kirby:
@@ -558,13 +800,10 @@
           let a = new Audio(AUDIO_LINKS[k]);
           a.volume = 0;
           a.play()
-            .then(() => {
-              a.pause();
-            })
+            .then(() => a.pause())
             .catch(() => {});
         });
       }
-
       function reproducirResultado(key) {
         if (audioActual) {
           audioActual.pause();
@@ -573,15 +812,13 @@
         audioActual = new Audio(AUDIO_LINKS[key]);
         audioActual.muted = muted;
         audioActual.volume = 1.0;
-        audioActual.play().catch((e) => console.log("Error de audio:", e));
+        audioActual.play().catch((e) => console.log(e));
       }
-
       function toggleMute() {
         muted = !muted;
         document.getElementById("mute-btn").innerText = muted ? "🔇" : "🔊";
         if (audioActual) audioActual.muted = muted;
       }
-
       function cerrarResumen() {
         if (audioActual) {
           audioActual.pause();
@@ -597,73 +834,473 @@
 
       async function login() {
         habilitarAudios();
-        const r = await fetch(API, {
-          method: "POST",
-          body: JSON.stringify({
-            action: "login",
-            id: document.getElementById("l-u").value,
-            pass: document.getElementById("l-p").value,
-          }),
-        });
-        const d = await r.json();
-        if (d.success) {
-          tiendaActual = d.tienda;
-          miRol = d.rol;
-          document.getElementById("txt-u").innerText = d.nombre;
-          document.getElementById("txt-t").innerText = d.tienda;
-          if (miRol === "Gerente")
-            document.getElementById("area-gerente").style.display = "block";
-          irA("scr-menu");
-        } else alert("Error de acceso");
+        try {
+          const r = await fetch(API, {
+            method: "POST",
+            body: JSON.stringify({
+              action: "login",
+              id: document.getElementById("l-u").value,
+              pass: document.getElementById("l-p").value,
+            }),
+          });
+          const d = await r.json();
+          if (d.success) {
+            datosLogin = d;
+            tiendaActual = d.tienda;
+            miRol = d.rol;
+            document.getElementById("txt-u").innerText = d.nombre;
+            document.getElementById("txt-t").innerText = d.tienda;
+            if (miRol === "Gerente")
+              document.getElementById("area-gerente").style.display = "block";
+            irA("scr-menu");
+          } else alert("Error de acceso o credenciales incorrectas");
+        } catch (e) {
+          alert("Error de conexión. Verifica la URL de Apps Script.");
+        }
       }
 
-      const getStatusColor = (f, s, d) => {
-        if (d > 0) return "var(--yellow)";
-        if (f == s) return "var(--green)";
-        return f > s ? "var(--orange)" : "var(--red)";
-      };
-
       async function registro() {
-        await fetch(API, {
-          method: "POST",
-          body: JSON.stringify({
+        try {
+          const payload = {
             action: "register",
             id: document.getElementById("r-u").value,
             pass: document.getElementById("r-p").value,
             nombre: document.getElementById("r-n").value,
             tienda: document.getElementById("r-t").value,
+            clave: document.getElementById("r-c").value.toUpperCase(),
+            nombre_tienda: document.getElementById("r-nt").value,
+            distrito: document.getElementById("r-d").value,
+          };
+          const r = await fetch(API, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
+          const d = await r.json();
+          if (d.success) {
+            alert("Usuario creado exitosamente");
+            irA("scr-login");
+          } else {
+            alert("Error del servidor: " + (d.error || "Datos incompletos."));
+          }
+        } catch (e) {
+          alert(
+            "Fallo de conexión. Verifica el enlace de la Nueva Implementación."
+          );
+        }
+      }
+
+      // --- HISTORIAL DE REPORTES ---
+      async function abrirHistorial() {
+        irA("scr-historial");
+        const cont = document.getElementById("lista-historial");
+        cont.innerHTML = "<p>Cargando reportes...</p>";
+        try {
+          const r = await fetch(API, {
+            method: "POST",
+            body: JSON.stringify({
+              action: "get_reports",
+              tienda: tiendaActual,
+            }),
+          });
+          const d = await r.json();
+          reportesCargados = d.data || [];
+          if (reportesCargados.length === 0) {
+            cont.innerHTML =
+              "<p>No hay reportes firmados en el último mes.</p>";
+            return;
+          }
+          let html = "";
+          reportesCargados
+            .slice()
+            .reverse()
+            .forEach((rep) => {
+              html += `<div class="card" style="display:flex; flex-direction:column; gap:8px;">
+                        <b>Reporte: ${new Date(rep.fecha).toLocaleString()}</b>
+                        <div class="hist-btn-group">
+                            <button style="background:var(--blue);" onclick="reGenerarPDF('${
+                              rep.id
+                            }')">📄 Descargar PDF</button>
+                            <button style="background:var(--red);" onclick="borrarReporte('${
+                              rep.id
+                            }')">🗑️ Borrar</button>
+                        </div>
+                    </div>`;
+            });
+          cont.innerHTML = html;
+        } catch (e) {
+          cont.innerHTML = "<p>Error al cargar el historial.</p>";
+        }
+      }
+
+      async function borrarReporte(id) {
+        if (
+          !confirm(
+            "¿Seguro que deseas eliminar este reporte del sistema permanentemente?"
+          )
+        )
+          return;
+        await fetch(API, {
+          method: "POST",
+          body: JSON.stringify({ action: "delete_report", id_reporte: id }),
+        });
+        alert("Reporte eliminado.");
+        abrirHistorial();
+      }
+
+      // --- GESTIÓN DE FIRMAS (MEMORIA TEMPORAL MEJORADA) ---
+      async function abrirFirmas() {
+        irA("scr-firmas");
+        document.getElementById("f-suc").innerText = datosLogin.clave || "---";
+        document.getElementById("f-num").innerText = datosLogin.tienda || "---";
+        document.getElementById("notif-final").style.display = "none";
+        document.getElementById("btn-pdf").style.display = "none";
+
+        const r = await fetch(API, {
+          method: "POST",
+          body: JSON.stringify({
+            action: "get_store_users",
+            tienda: tiendaActual,
           }),
         });
-        alert("Usuario creado");
-        irA("scr-login");
+        const d = await r.json();
+
+        const cont = document.getElementById("lista-firmas");
+        cont.innerHTML = "";
+        // IMPORTANTE: Ya no limpiamos firmasCapturadas. Se quedan guardadas si regresas de un error.
+
+        if (d.users.length === 0) {
+          cont.innerHTML = "<p>No hay empleados en esta tienda.</p>";
+          return;
+        }
+
+        let todasFirmadas = true;
+
+        d.users.forEach((u) => {
+          const div = document.createElement("div");
+          div.className = "firma-box";
+          let tituloPuesto =
+            u.puesto === "RSC"
+              ? "RSC (Representante de servicio al cliente)"
+              : u.puesto;
+
+          // Si este empleado ya había firmado en esta sesión, mostramos su firma
+          if (firmasCapturadas[u.id]) {
+            div.innerHTML = `
+                        <strong>${
+                          u.nombre
+                        }</strong> <br><small>${tituloPuesto}</small><br>
+                        <img src="${
+                          firmasCapturadas[u.id].img
+                        }" style="width:200px; height:auto; border-bottom:1px solid #ccc; margin-top:10px;"><br>
+                        <div style="display:flex; align-items:center; gap: 10px; margin-top: 10px;">
+                            <span style="color:var(--green); font-weight:bold; font-size:12px;">✔️ Firmado</span>
+                            <button class="btn-adj" style="font-size:10px; padding: 5px;" onclick="borrarFirmaIndividual('${
+                              u.id
+                            }')">Volver a firmar</button>
+                        </div>
+                    `;
+          } else {
+            todasFirmadas = false; // Falta alguien
+            div.innerHTML = `
+                        <strong>${u.nombre}</strong> <br><small>${tituloPuesto}</small><br>
+                        <label style="font-size:12px; font-weight:bold; color:var(--red); display:block; margin: 8px 0;">
+                            <input type="checkbox" id="chk-perdida-${u.id}"> Le corresponde toda la pérdida
+                        </label>
+                        <canvas id="canvas-${u.id}" class="canvas-firma" width="300" height="100"></canvas>
+                        <div style="display:flex; gap:5px; margin-top:5px;">
+                            <button class="btn-adj" onclick="limpiarFirma('${u.id}')">Limpiar</button>
+                            <button class="btn" style="padding:8px; font-size:12px;" onclick="guardarFirmaLocal('${u.id}', '${u.nombre}', '${tituloPuesto}')">Confirmar Firma</button>
+                        </div>
+                    `;
+          }
+          cont.appendChild(div);
+          if (!firmasCapturadas[u.id]) initCanvas(`canvas-${u.id}`);
+        });
+
+        // Si todos ya habían firmado, habilitamos el botón de inmediato
+        if (todasFirmadas && d.users.length > 0) {
+          const btn = document.getElementById("btn-pdf");
+          btn.style.display = "block";
+          btn.innerText = "GENERAR PDF Y FINALIZAR";
+          btn.disabled = false;
+          btn.style.background = "var(--blue)";
+        }
       }
+
+      // Función para permitir a un solo usuario volver a firmar sin borrar a los demás
+      window.borrarFirmaIndividual = function (id) {
+        delete firmasCapturadas[id];
+        abrirFirmas(); // Refrescar pantalla
+      };
+
+      function initCanvas(id) {
+        const canvas = document.getElementById(id);
+        const ctx = canvas.getContext("2d");
+        let drawing = false;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#000";
+        const start = (e) => {
+          drawing = true;
+          ctx.beginPath();
+        };
+        const move = (e) => {
+          if (!drawing) return;
+          const rect = canvas.getBoundingClientRect();
+          const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          ctx.lineTo(clientX - rect.left, clientY - rect.top);
+          ctx.stroke();
+        };
+        const stop = () => (drawing = false);
+        canvas.addEventListener("mousedown", start);
+        canvas.addEventListener("mousemove", move);
+        window.addEventListener("mouseup", stop);
+        canvas.addEventListener("touchstart", start);
+        canvas.addEventListener(
+          "touchmove",
+          (e) => {
+            e.preventDefault();
+            move(e);
+          },
+          { passive: false }
+        );
+        canvas.addEventListener("touchend", stop);
+      }
+
+      function limpiarFirma(id) {
+        document
+          .getElementById(`canvas-${id}`)
+          .getContext("2d")
+          .clearRect(0, 0, 300, 100);
+      }
+
+      function guardarFirmaLocal(id, nombre, puesto) {
+        let asumePerdida = document.getElementById(`chk-perdida-${id}`).checked;
+        firmasCapturadas[id] = {
+          nombre,
+          puesto,
+          asumePerdida,
+          img: document.getElementById(`canvas-${id}`).toDataURL("image/png"),
+        };
+        alert("Firma confirmada para: " + nombre);
+        abrirFirmas(); // Refresca para checar si ya están todos y mostrar el botón principal
+      }
+
+      // --- CREADOR DE PDF COMPARTIDO ---
+      function procesarYDescargarPDF(
+        dataItems,
+        dataFirmas,
+        fechaStr,
+        esHistorial = false
+      ) {
+        const element = document.getElementById("pdf-molde").cloneNode(true);
+        element.id = "pdf-render-target";
+        element.style.display = "block";
+        element.style.position = "absolute";
+        element.style.top = "0";
+        element.style.left = "0";
+        element.style.zIndex = "-9999";
+        document.body.appendChild(element);
+
+        element.querySelector("#pdf-suc").innerText = datosLogin.clave || "---";
+        element.querySelector("#pdf-num").innerText =
+          datosLogin.tienda || "---";
+        element.querySelector("#pdf-nom").innerText =
+          datosLogin.nombre_tienda || "---";
+        element.querySelector("#pdf-fecha").innerText = fechaStr;
+        element.querySelector("#pdf-dist").innerText =
+          datosLogin.distrito || "---";
+
+        const tbody = element.querySelector("#pdf-tabla-body");
+        tbody.innerHTML = "";
+        let totalPerdidaMoney = 0;
+        let tieneDiferencias = false;
+
+        dataItems.forEach((it) => {
+          if (it.categoria && it.categoria.toLowerCase().includes("telefon"))
+            return;
+          if (it.plataforma && it.plataforma.toLowerCase().includes("telefon"))
+            return;
+
+          const diff = it.fisico - it.sistema;
+          if (diff !== 0) {
+            tieneDiferencias = true;
+            if (diff < 0) totalPerdidaMoney += Math.abs(diff) * it.precio;
+            tbody.innerHTML += `<tr>
+                        <td style="border:1px solid #ddd; padding:8px;">${it.upc}</td>
+                        <td style="border:1px solid #ddd; padding:8px;">${it.nombre}</td>
+                        <td style="border:1px solid #ddd; padding:8px; text-align:center;">${it.sistema}</td>
+                        <td style="border:1px solid #ddd; padding:8px; text-align:center;">${it.fisico}</td>
+                        <td style="border:1px solid #ddd; padding:8px; text-align:center;">${diff}</td>
+                    </tr>`;
+          }
+        });
+
+        if (!tieneDiferencias) {
+          tbody.innerHTML += `<tr><td colspan="5" style="border: 1px solid #ddd; padding: 8px; text-align:center;">Inventario Perfecto. Sin diferencias detectadas.</td></tr>`;
+        }
+
+        element.querySelector("#pdf-tot-per").innerText =
+          totalPerdidaMoney.toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+          });
+
+        const fGrid = element.querySelector("#pdf-firmas-grid");
+        fGrid.innerHTML = "";
+        Object.values(dataFirmas).forEach((f) => {
+          let leyenda = f.asumePerdida
+            ? `<br><b style="color:red; font-size:10px;">(LE CORRESPONDE PÉRDIDA)</b>`
+            : "";
+          fGrid.innerHTML += `<div style="text-align:center;">
+                    <img src="${f.img}" style="width:160px; height:auto; border-bottom:1px solid #000; margin-bottom:5px;"><br>
+                    <small><b>${f.nombre}</b><br>${f.puesto}${leyenda}</small>
+                </div>`;
+        });
+
+        // Scrollear a top forzosamente previene el corte de PDF en iPhones.
+        window.scrollTo(0, 0);
+
+        setTimeout(() => {
+          const opt = {
+            margin: 0.3,
+            filename: `Caratula_${datosLogin.clave}_${
+              datosLogin.tienda
+            }_${fechaStr.replace(/\//g, "-")}.pdf`,
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: {
+              scale: 2,
+              useCORS: true,
+              logging: false,
+              windowWidth: 800,
+              scrollY: 0,
+            },
+            jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
+          };
+
+          html2pdf()
+            .set(opt)
+            .from(element.children[0])
+            .save()
+            .then(async () => {
+              document.body.removeChild(element);
+
+              if (!esHistorial) {
+                const notif = document.getElementById("notif-final");
+                notif.innerHTML = `Carátula ${datosLogin.clave || ""} ${
+                  datosLogin.tienda || ""
+                } "${fechaStr}".<br>Firmada por todos`;
+                notif.style.display = "block";
+                document.getElementById("btn-pdf").style.display = "none";
+                // Ya no borramos la vista de lista-firmas para que se den cuenta que están guardadas
+                confetti();
+
+                await fetch(API, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    action: "save_inventory_report",
+                    tienda: tiendaActual,
+                    clave: datosLogin.clave,
+                    status: "PDF Generado",
+                    firmas: dataFirmas,
+                    items: dataItems,
+                  }),
+                });
+              }
+            })
+            .catch((error) => {
+              document.body.removeChild(element);
+              alert("Ocurrió un error al generar el PDF.");
+              if (!esHistorial) {
+                const btn = document.getElementById("btn-pdf");
+                btn.innerText = "GENERAR PDF Y FINALIZAR";
+                btn.style.background = "var(--blue)";
+                btn.disabled = false;
+              }
+            });
+        }, 1000);
+      }
+
+      async function generarCaratulaPDF() {
+        const btn = document.getElementById("btn-pdf");
+        btn.innerText = "GENERANDO PDF... ESPERA";
+        btn.style.background = "var(--gray)";
+        btn.disabled = true;
+
+        try {
+          const r = await fetch(API, {
+            method: "POST",
+            body: JSON.stringify({
+              action: "search_stock",
+              query: "",
+              filtro: "todos",
+              tienda: tiendaActual,
+            }),
+          });
+          const d = await r.json();
+          const fechaStr = new Date().toLocaleDateString();
+          procesarYDescargarPDF(d.data, firmasCapturadas, fechaStr, false);
+        } catch (error) {
+          alert("Error de conexión al preparar la carátula.");
+          btn.innerText = "GENERAR PDF Y FINALIZAR";
+          btn.style.background = "var(--blue)";
+          btn.disabled = false;
+        }
+      }
+
+      function reGenerarPDF(idReporte) {
+        const rep = reportesCargados.find((r) => r.id === idReporte);
+        if (!rep) return alert("Reporte no encontrado en memoria.");
+        const fechaStr = new Date(rep.fecha).toLocaleDateString();
+        const items = JSON.parse(rep.items || "[]");
+        const firmas = JSON.parse(rep.firmas || "{}");
+        procesarYDescargarPDF(items, firmas, fechaStr, true);
+      }
+
+      // --- CÁMARA OPTIMIZADA ---
+      const getStatusColor = (f, s, d) =>
+        d > 0
+          ? "var(--yellow)"
+          : f == s
+          ? "var(--green)"
+          : f > s
+          ? "var(--orange)"
+          : "var(--red)";
 
       function iniciarLector() {
         camState = true;
         document.getElementById("btn-cam-toggle").innerText = "Apagar Cámara";
+
         zxingReader.decodeFromVideoDevice(null, "v", (res) => {
           if (res && !escaneando) {
             escaneando = true;
             procesarScan(res.text);
           }
         });
+
         Quagga.init(
           {
             inputStream: {
               name: "Live",
               type: "LiveStream",
               target: document.querySelector("#v-container"),
-              constraints: { facingMode: "environment" },
+              constraints: {
+                facingMode: "environment",
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+                focusMode: "continuous",
+              },
             },
             decoder: {
               readers: ["ean_reader", "upc_reader", "code_128_reader"],
             },
             locate: true,
+            locator: { halfSample: true, patchSize: "medium" },
           },
           (err) => {
             if (!err) Quagga.start();
           }
         );
+
         Quagga.onDetected((res) => {
           if (res && !escaneando) {
             escaneando = true;
@@ -783,7 +1420,6 @@
           )
           .join("");
       }
-
       async function buscarGestion() {
         const r = await fetch(API, {
           method: "POST",
@@ -802,7 +1438,6 @@
           })
           .join("");
       }
-
       async function ajustar(upc, valor, tipo) {
         await fetch(API, {
           method: "POST",
@@ -833,14 +1468,10 @@
         }
       }
 
-      // --- FINALIZACIÓN CON FILTRO ROBUSTO ---
+      // SONIDO BOO Y LÓGICA DE AUDIOS
       async function generarFinal() {
         irA("scr-final");
-        document.getElementById("final-titulo").innerText =
-          "Analizando Inventario...";
-        document.getElementById("final-detalles").innerHTML =
-          "Cargando datos...";
-
+        document.getElementById("final-titulo").innerText = "Analizando...";
         const r = await fetch(API, {
           method: "POST",
           body: JSON.stringify({
@@ -851,25 +1482,14 @@
           }),
         });
         const d = await r.json();
-
-        // Función para limpiar texto (quita tildes y pasa a minúsculas)
-        const limpiar = (t) =>
-          String(t || "")
-            .toLowerCase()
-            .normalize("NFD")
-            .replace(/[\u0300-\u036f]/g, "");
-
-        const dataLimpia = d.data.filter((it) => {
-          const cat = limpiar(it.categoria);
-          const plat = limpiar(it.plataforma);
-          const target = "planes telefonia";
-          return !cat.includes(target) && !plat.includes(target);
-        });
-
+        const dataLimpia = d.data.filter(
+          (it) =>
+            !(it.categoria && it.categoria.toLowerCase().includes("telefon")) &&
+            !(it.plataforma && it.plataforma.toLowerCase().includes("telefon"))
+        );
         let faltantes = [],
-          sobrantes = [];
-        let totalPerdidaMoney = 0;
-
+          sobrantes = [],
+          totalPerdidaMoney = 0;
         dataLimpia.forEach((it) => {
           const diff = it.fisico - it.sistema;
           if (diff < 0) {
@@ -880,42 +1500,38 @@
           }
         });
 
-        const tieneFaltante = faltantes.length > 0;
-        const tieneSobrante = sobrantes.length > 0;
-
         let titulo = "",
           msg = "",
           gif = "",
           colorFondo = "",
           audioKey = "";
-
-        if (!tieneFaltante && !tieneSobrante) {
-          titulo = "¡FELICIDADES!";
-          msg = "Tu inventario está completo.";
+        if (faltantes.length === 0 && sobrantes.length === 0) {
+          titulo = "¡EXCELENTE!";
+          msg = "Inventario perfecto.";
           gif = "https://cdn.wikirby.com/a/aa/KSSU_Kirby_Dance.gif";
           colorFondo = "var(--green)";
           audioKey = "kirby";
-          confetti({ spread: 70, particleCount: 150, origin: { y: 0.6 } });
-        } else if (tieneFaltante && !tieneSobrante) {
-          titulo = "¡Oh, no!";
-          msg = "Se detectaron faltantes.";
-          gif =
-            "https://i.pinimg.com/originals/4c/04/49/4c04499d9b89e8f6b8de4c8c8b12a10f.gif";
-          colorFondo = "var(--red)";
-          audioKey = "mario";
-        } else if (!tieneFaltante && tieneSobrante) {
-          titulo = "¿Felicidades?";
-          msg = "¡Pero sobran cosas!";
-          gif = "https://media.tenor.com/C8oYXcxgFB4AAAAM/riiiz.gif";
-          colorFondo = "var(--orange)";
-          audioKey = "wario";
-        } else {
-          titulo = "Dificultades detectadas";
+          confetti();
+        } else if (faltantes.length > 0 && sobrantes.length > 0) {
+          titulo = "Atención";
           msg = "Hay tanto faltantes como sobrantes.";
           gif =
             "https://i.pinimg.com/originals/0c/3a/14/0c3a146cf1cb9d6bcb8cd1df8b657b7a.gif";
           colorFondo = "var(--dark)";
           audioKey = "boo";
+        } else if (faltantes.length > 0) {
+          titulo = "Faltantes";
+          msg = "Se detectaron pérdidas.";
+          gif =
+            "https://i.pinimg.com/originals/4c/04/49/4c04499d9b89e8f6b8de4c8c8b12a10f.gif";
+          colorFondo = "var(--red)";
+          audioKey = "mario";
+        } else {
+          titulo = "Sobrantes";
+          msg = "Hay más piezas de las esperadas.";
+          gif = "https://media.tenor.com/C8oYXcxgFB4AAAAM/riiiz.gif";
+          colorFondo = "var(--orange)";
+          audioKey = "wario";
         }
 
         document.getElementById("final-titulo").innerText = titulo;
@@ -924,11 +1540,8 @@
         document.getElementById(
           "final-gif-container"
         ).innerHTML = `<img src="${gif}" class="resumen-img">`;
-
         reproducirResultado(audioKey);
-
-        let htmlDetalle = "<h4>Detalle de Faltantes:</h4>";
-        if (faltantes.length === 0) htmlDetalle += "<p>Ninguno</p>";
+        let htmlDetalle = "<h4>Detalle:</h4>";
         faltantes.forEach((f) => {
           htmlDetalle += `<div class="item-resumen"><b>${f.diff} pzas</b> - ${
             f.nombre
@@ -936,15 +1549,12 @@
             f.diff * f.precio
           }</b></small></div>`;
         });
-
         if (sobrantes.length > 0) {
-          htmlDetalle +=
-            "<h4 style='margin-top:20px;'>Detalle de Sobrantes:</h4>";
+          htmlDetalle += "<h4 style='margin-top:15px;'>Sobrantes:</h4>";
           sobrantes.forEach((s) => {
-            htmlDetalle += `<div class="item-resumen" style="border-left: 4px solid var(--orange)"><b>${s.diff} pzas</b> - ${s.nombre}<br><small>UPC: ${s.upc}</small></div>`;
+            htmlDetalle += `<div class="item-resumen" style="border-left: 4px solid var(--orange);"><b>${s.diff} pzas</b> - ${s.nombre}<br><small>UPC: ${s.upc}</small></div>`;
           });
         }
-
         document.getElementById("final-detalles").innerHTML = htmlDetalle;
         document.getElementById("final-totales").style.background = colorFondo;
         document.getElementById("final-totales").style.color = "white";
@@ -986,6 +1596,9 @@
       }
 
       document.getElementById("f-in").onchange = (e) => {
+        const borrarFisico = confirm(
+          "¿Deseas REINICIAR EL CONTADOR A 0?\n\nAceptar = Borrar tu conteo físico actual.\nCancelar = Mantener los escaneos que ya hiciste y solo actualizar sistema."
+        );
         const fr = new FileReader();
         fr.onload = async (ev) => {
           const wb = XLSX.read(ev.target.result, { type: "binary" });
@@ -1004,6 +1617,7 @@
               action: "upload_inventory",
               items: items,
               tienda: tiendaActual,
+              reset_fisico: borrarFisico,
             }),
           });
           alert("Carga completada");

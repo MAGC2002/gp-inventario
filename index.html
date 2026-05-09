@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gameplanet Inventario v1.8.4</title>
+    <title>Inventario Pro Beta v1.8.11</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -11,16 +11,20 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
     <style>
-        :root { --blue: #004a99; --bg: #f4f7f6; --green: #28a745; --red: #dc3545; --orange: #fd7e14; --yellow: #ffc107; --dark: #333; --gray: #6c757d; }
+        :root { --main-color: #2c3e50; --bg: #f4f7f6; --accent: #3498db; --green: #27ae60; --red: #e74c3c; --orange: #f39c12; --yellow: #ffc107; --dark: #2c3e50; --gray: #95a5a6; }
         body { background: var(--bg); font-family: 'Segoe UI', sans-serif; margin: 0; color: var(--dark); overflow-x: hidden; }
         .screen { display: none; padding: 15px; animation: fadeIn 0.3s; }
         .active { display: block; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 15px; position: relative; }
-        .btn { background: var(--blue); color: white; border: none; padding: 14px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
+        .btn { background: var(--main-color); color: white; border: none; padding: 14px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
         .btn:active { transform: scale(0.98); opacity: 0.9; }
         .btn:disabled { opacity: 0.7; cursor: not-allowed; }
         input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        
+        /* Mascota y Marca Blanca */
+        .mascot-container { text-align: center; margin-bottom: 20px; }
+        .mascot-img { width: 80px; height: auto; filter: drop-shadow(0 4px 4px rgba(0,0,0,0.2)); }
         
         /* Cámara - Animación Fluida */
         #cam-box { display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:100; background:#000; }
@@ -29,7 +33,7 @@
         .scanner-line { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: var(--red); box-shadow: 0 0 10px var(--red); animation: scanMove 1.5s linear infinite; z-index: 110; will-change: transform; }
         @keyframes scanMove { 0% { transform: translateY(10px); } 50% { transform: translateY(28vh); } 100% { transform: translateY(10px); } }
         
-        #scan-info { position:absolute; bottom:0; width:100%; height:70%; background:white; padding:20px; border-top:5px solid var(--blue); overflow-y:auto; box-sizing:border-box; border-radius: 20px 20px 0 0; }
+        #scan-info { position:absolute; bottom:0; width:100%; height:70%; background:white; padding:20px; border-top:5px solid var(--main-color); overflow-y:auto; box-sizing:border-box; border-radius: 20px 20px 0 0; }
         .hist-item { font-size: 12px; padding: 8px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
         .grid-adj { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 10px; }
         .btn-adj { padding: 10px; font-weight: bold; border-radius: 6px; border: 1px solid #ddd; background: #f9f9f9; }
@@ -50,34 +54,40 @@
     <audio id="bip" preload="auto" playsinline><source src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" type="audio/mpeg"></audio>
 
     <div id="scr-login" class="screen active">
-        <h2 style="text-align:center; color:var(--blue); margin-top:40px;">Gameplanet <small>v1.8.4</small></h2>
+        <div class="mascot-container" style="margin-top: 50px;">
+            <img src="https://cdn-icons-png.flaticon.com/512/2043/2043231.png" class="mascot-img" alt="Mascota Beta">
+            <h2 style="color:var(--main-color); margin-top:10px;">Inventario Pro <small>Beta v1.8.11</small></h2>
+        </div>
         <div class="card">
             <input type="text" id="l-u" placeholder="Usuario (ID)">
             <input type="password" id="l-p" placeholder="Contraseña">
             <button class="btn" onclick="login()">INICIAR SESIÓN</button>
-            <p onclick="irA('scr-reg')" style="text-align:center; color:var(--blue); margin-top:20px; cursor:pointer; font-weight:bold;">Registrar nuevo usuario</p>
+            <p onclick="irA('scr-reg')" style="text-align:center; color:var(--accent); margin-top:20px; cursor:pointer; font-weight:bold;">Registrar nueva cuenta corporativa</p>
         </div>
     </div>
 
     <div id="scr-reg" class="screen">
-        <h3>Crear Cuenta</h3>
+        <h3>Registro de Personal</h3>
         <div class="card">
             <input type="text" id="r-u" placeholder="ID de Empleado">
             <input type="password" id="r-p" placeholder="Contraseña">
             <input type="text" id="r-n" placeholder="Nombre Completo">
-            <input type="number" id="r-t" placeholder="No. de Tienda (Ej: 21)">
-            <input type="text" id="r-c" placeholder="Clave Sucursal (Ej: ARAG)">
-            <input type="text" id="r-nt" placeholder="Nombre Tienda (Ej: Multiplaza Aragon)">
-            <input type="text" id="r-d" placeholder="Distrito (Ej: Dt1, Dt2...)">
-            <button class="btn" onclick="registro()">REGISTRAR</button>
+            <input type="number" id="r-t" placeholder="No. de Sucursal (Ej: 21)">
+            <input type="text" id="r-c" placeholder="Código de Sucursal (Ej: ARAG)">
+            <input type="text" id="r-nt" placeholder="Nombre de la Unidad">
+            <input type="text" id="r-d" placeholder="Zona/Distrito">
+            <button class="btn" onclick="registro()">REGISTRAR CUENTA</button>
             <button onclick="irA('scr-login')" style="background:none; border:none; width:100%; margin-top:15px; color:#666;">Volver</button>
         </div>
     </div>
 
     <div id="scr-menu" class="screen">
-        <div class="card" style="border-left: 6px solid var(--blue);">
-            <span style="font-size: 18px;">Hola, <b id="txt-u"></b></span><br>
-            <small>Sucursal: <span id="txt-t"></span></small>
+        <div class="card" style="border-left: 6px solid var(--accent); display: flex; align-items: center; gap: 15px;">
+            <img src="https://cdn-icons-png.flaticon.com/512/2043/2043231.png" style="width: 40px; height: 40px;">
+            <div>
+                <span style="font-size: 16px;">Hola, <b id="txt-u"></b></span><br>
+                <small>Unidad: <span id="txt-t"></span></small>
+            </div>
         </div>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
             <div class="card" onclick="document.getElementById('f-in').click()" style="text-align:center;">📤<br>Excel</div>
@@ -87,13 +97,13 @@
         </div>
         
         <div id="area-gerente" style="display:none;">
-            <button class="btn" style="background:var(--orange); margin-top:10px;" onclick="irA('scr-gest')">⚙️ GESTIÓN DE INVENTARIO</button>
-            <button class="btn" style="background:var(--green); margin-top:10px;" onclick="abrirFirmas()">✍️ FIRMAR Y CARÁTULA</button>
-            <button class="btn" style="background:var(--dark); margin-top:10px;" onclick="abrirHistorial()">📁 HISTORIAL DE REPORTES</button>
+            <button class="btn" style="background:var(--orange); margin-top:10px;" onclick="irA('scr-gest')">⚙️ GESTIÓN DE EXISTENCIAS</button>
+            <button class="btn" style="background:var(--green); margin-top:10px;" onclick="abrirFirmas()">✍️ FINALIZAR Y FIRMAR</button>
+            <button class="btn" style="background:var(--dark); margin-top:10px;" onclick="abrirHistorial()">📁 ARCHIVO DE REPORTES</button>
         </div>
         <input type="file" id="f-in" hidden accept=".xlsx,.xls,.csv">
         
-        <button class="btn" style="background:var(--red); margin-top:30px;" onclick="forzarActualizacion()">🔄 FORZAR ACTUALIZACIÓN</button>
+        <button class="btn" style="background:var(--red); margin-top:30px;" onclick="forzarActualizacion()">🔄 REFRESCAR SISTEMA</button>
         <button class="btn" style="background:#666; margin-top:10px;" onclick="location.reload()">Cerrar Sesión</button>
     </div>
 
@@ -111,7 +121,7 @@
 
     <div id="scr-gest" class="screen">
         <button onclick="irA('scr-menu')" style="margin-bottom:15px; width:auto; padding:8px 15px; background:#666; border:none; color:white; border-radius:5px;">⬅️ Volver</button>
-        <h3>Gestión</h3>
+        <h3>Gestión de Existencias</h3>
         <select id="filtro-gest" onchange="buscarGestion()">
             <option value="todos">Todos</option>
             <option value="faltante">Faltantes (🔴)</option>
@@ -125,10 +135,10 @@
     <div id="scr-firmas" class="screen">
         <button onclick="irA('scr-menu')" style="margin-bottom:15px; width:auto; padding:8px 15px; background:#666; border:none; color:white; border-radius:5px;">⬅️ Volver</button>
         <div class="card">
-            <h3>Firmar Carátula</h3>
-            <p><small>Sucursal: <span id="f-suc"></span> | Tienda: <span id="f-num"></span></small></p>
+            <h3>Firma de Auditoría</h3>
+            <p><small>Unidad: <span id="f-suc"></span> | Tienda: <span id="f-num"></span></small></p>
             <div id="lista-firmas"></div>
-            <button class="btn" id="btn-pdf" style="display:none; background:var(--blue);" onclick="generarCaratulaPDF()">GENERAR PDF Y FINALIZAR</button>
+            <button class="btn" id="btn-pdf" style="display:none; background:var(--main-color);" onclick="generarCaratulaPDF()">GENERAR PDF Y FINALIZAR</button>
             <div id="notif-final" style="display:none; background: #d4edda; color: #155724; padding: 20px; border-radius: 10px; border: 2px solid #c3e6cb; margin-top: 15px; text-align: center; font-weight: bold;"></div>
         </div>
     </div>
@@ -177,29 +187,28 @@
     </div>
 
     <div id="pdf-molde" style="display:none;">
-        <div style="width: 750px; background: white; padding: 40px; color: black; font-family: Arial, sans-serif; box-sizing: border-box;">
-            <div style="text-align:center; border-bottom: 3px solid #004a99; padding-bottom: 10px;">
-                <h2 style="margin:0; font-size:20px; color:#555;">CARÁTULA DE INVENTARIO SEMANAL</h2>
+        <div style="width: 800px; background: white; padding: 40px; color: black; font-family: Arial, sans-serif; box-sizing: border-box;">
+            <div style="text-align:center; border-bottom: 3px solid #2c3e50; padding-bottom: 10px;">
+                <h2 style="margin:0; font-size:20px; color:#555;">CARÁTULA DE INVENTARIO</h2>
             </div>
             <div style="display:flex; justify-content: space-between; margin-top:25px; font-size:14px; line-height:1.6;">
                 <div>
-                    <p><b>Sucursal:</b> <span id="pdf-suc"></span></p>
-                    <p><b>No. Tienda:</b> <span id="pdf-num"></span></p>
-                    <p><b>Tienda:</b> <span id="pdf-nom"></span></p>
+                    <p><b>Unidad:</b> <span id="pdf-suc"></span></p>
+                    <p><b>ID Tienda:</b> <span id="pdf-num"></span></p>
+                    <p><b>Nombre:</b> <span id="pdf-nom"></span></p>
                 </div>
                 <div style="text-align:right;">
-                    <p><b>Fecha:</b> <span id="pdf-fecha"></span></p>
-                    <p><b>Distrito:</b> <span id="pdf-dist"></span></p>
+                    <p><b>Fecha de Cierre:</b> <span id="pdf-fecha"></span></p>
+                    <p><b>Zona/Distrito:</b> <span id="pdf-dist"></span></p>
                 </div>
             </div>
             <table style="width: 100%; border-collapse: collapse; margin-top: 25px; font-size:11px;">
                 <thead>
-                    <tr style="background:#004a99; color:white;">
+                    <tr style="background:#2c3e50; color:white;">
                         <th style="border: 1px solid #ddd; padding: 10px; text-align:left;">UPC</th>
                         <th style="border: 1px solid #ddd; padding: 10px; text-align:left;">PRODUCTO</th>
-                        <th style="border: 1px solid #ddd; padding: 10px; text-align:center;">SISTEMA</th>
-                        <th style="border: 1px solid #ddd; padding: 10px; text-align:center;">FÍSICO</th>
-                        <th style="border: 1px solid #ddd; padding: 10px; text-align:center;">DIF</th>
+                        <th style="border: 1px solid #ddd; padding: 10px; text-align:center;">CANTIDAD</th>
+                        <th style="border: 1px solid #ddd; padding: 10px; text-align:left;">OBSERVACIONES</th>
                     </tr>
                 </thead>
                 <tbody id="pdf-tabla-body"></tbody>
@@ -207,7 +216,7 @@
             
             <div style="margin-top: 30px; padding: 15px; border: 2px solid #ccc; background: #fafafa; font-size: 14px; font-weight: bold;">
                 <p style="margin:5px 0;">DEFECTOS: $0</p>
-                <p style="margin:5px 0;">PÉRDIDA/FALTANTE: $<span id="pdf-tot-per">0</span></p>
+                <p style="margin:5px 0;">PÉRDIDA/FALTANTE: $<span id="pdf-tot-per">0.00</span></p>
                 <p style="margin:5px 0;">SOBRANTE: $0</p>
             </div>
 
@@ -217,7 +226,7 @@
 
     <script>
         // AQUÍ PON TU URL DE GOOGLE APPS SCRIPT
-        const API = "https://script.google.com/macros/s/AKfycby4V5kLE7fdln0QedyYFvT_yHGgDUxevwe_INaO8UUMo5jGl3Lt6fmfw7lOHIpE6gd1dg/exec"; 
+        const API = "https://script.google.com/macros/s/AKfycbx69EiH8rfO5PEw7I40gXOO8fRuGnfnnEz9DbZwDmarUQ55w6dOlSU8cNnyP3vzfIaN-A/exec"; 
         
         async function fetchAPI(payload) {
             if (!API || API === "TU_URL_DE_GOOGLE_APPS_SCRIPT_AQUI") {
@@ -258,7 +267,6 @@
         function cerrarResumen() { if(audioActual){audioActual.pause();} irA('scr-menu'); }
         function irA(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
 
-        // FUNCIÓN NUEVA PARA FORZAR LA ACTUALIZACIÓN SALTÁNDOSE LA CACHÉ
         function forzarActualizacion() {
             if(confirm("¿Forzar actualización de la aplicación? Esto descargará la versión más reciente del sistema.")) {
                 window.location.href = window.location.pathname + "?v=" + new Date().getTime();
@@ -302,7 +310,7 @@
                     html += `<div class="card" style="display:flex; flex-direction:column; gap:8px;">
                         <b>Reporte: ${new Date(rep.fecha).toLocaleString()}</b>
                         <div class="hist-btn-group">
-                            <button style="background:var(--blue);" onclick="reGenerarPDF('${rep.id}')">📄 Descargar PDF</button>
+                            <button style="background:var(--accent);" onclick="reGenerarPDF('${rep.id}')">📄 Descargar PDF</button>
                             <button style="background:var(--red);" onclick="borrarReporte('${rep.id}')">🗑️ Borrar</button>
                         </div>
                     </div>`;
@@ -312,9 +320,9 @@
         }
 
         async function borrarReporte(id) {
-            if(!confirm("¿Seguro que deseas eliminar este reporte del sistema permanentemente?")) return;
+            if(!confirm("¿Seguro que deseas eliminar este reporte permanentemente?")) return;
             await fetchAPI({action:"delete_report", id_reporte: id});
-            alert("Reporte eliminado. Ya puedes volver a generarlo desde el menú principal.");
+            alert("Reporte eliminado.");
             abrirHistorial(); 
         }
 
@@ -336,7 +344,7 @@
 
                 d.users.forEach(u => {
                     const div = document.createElement('div'); div.className = "firma-box";
-                    let tituloPuesto = u.puesto === "RSC" ? "RSC (Representante de servicio al cliente)" : u.puesto;
+                    let tituloPuesto = u.puesto === "RSC" ? "Representante (RSC)" : u.puesto;
                     
                     if(firmasCapturadas[u.id]) {
                         div.innerHTML = `
@@ -352,7 +360,7 @@
                         div.innerHTML = `
                             <strong>${u.nombre}</strong> <br><small>${tituloPuesto}</small><br>
                             <label style="font-size:12px; font-weight:bold; color:var(--red); display:block; margin: 8px 0;">
-                                <input type="checkbox" id="chk-perdida-${u.id}"> Le corresponde toda la pérdida
+                                <input type="checkbox" id="chk-perdida-${u.id}"> Le corresponde toda la perdida
                             </label>
                             <canvas id="canvas-${u.id}" class="canvas-firma" width="300" height="100"></canvas>
                             <div style="display:flex; gap:5px; margin-top:5px;">
@@ -370,7 +378,7 @@
                     btn.style.display = 'block';
                     btn.innerText = "GENERAR PDF Y FINALIZAR";
                     btn.disabled = false;
-                    btn.style.background = "var(--blue)";
+                    btn.style.background = "var(--main-color)";
                 }
             } catch(e) { alert(e.message); }
         }
@@ -398,6 +406,7 @@
             abrirFirmas(); 
         }
 
+        // --- CREADOR DE PDF ACTUALIZADO (SOLO CANTIDAD DE DIFERENCIA Y OBSERVACIÓN) ---
         function procesarYDescargarPDF(dataItems, dataFirmas, fechaStr, esHistorial = false) {
             const element = document.getElementById('pdf-molde').cloneNode(true);
             element.id = "pdf-render-target";
@@ -415,6 +424,7 @@
 
             const tbody = element.querySelector('#pdf-tabla-body');
             tbody.innerHTML = "";
+            
             let totalPerdidaMoney = 0;
             let tieneDiferencias = false;
 
@@ -422,22 +432,47 @@
                 if (it.categoria && String(it.categoria).toLowerCase().includes("telefon")) return;
                 if (it.plataforma && String(it.plataforma).toLowerCase().includes("telefon")) return;
 
-                const diff = it.fisico - it.sistema;
-                if(diff !== 0) { 
+                const sist = parseInt(it.sistema) || 0;
+                const fisBueno = parseInt(it.fisico) || 0;
+                const def = parseInt(it.defectos) || 0;
+                
+                const totalFis = fisBueno + def;
+                const diff = totalFis - sist;
+
+                if (diff !== 0 || def > 0) { 
                     tieneDiferencias = true;
-                    if(diff < 0) totalPerdidaMoney += (Math.abs(diff) * it.precio);
-                    tbody.innerHTML += `<tr>
-                        <td style="border:1px solid #ddd; padding:8px;">${it.upc}</td>
-                        <td style="border:1px solid #ddd; padding:8px;">${it.nombre}</td>
-                        <td style="border:1px solid #ddd; padding:8px; text-align:center;">${it.sistema}</td>
-                        <td style="border:1px solid #ddd; padding:8px; text-align:center;">${it.fisico}</td>
-                        <td style="border:1px solid #ddd; padding:8px; text-align:center;">${diff}</td>
-                    </tr>`;
+
+                    // FILA DE PÉRDIDA O SOBRANTE
+                    if (diff !== 0) {
+                        if (diff < 0) totalPerdidaMoney += (Math.abs(diff) * it.precio);
+                        let obs = diff < 0 ? "Pérdida" : "Sobrante";
+                        let valAbs = Math.abs(diff);
+                        let colorClass = diff < 0 ? "color:red; font-weight:bold;" : "color:inherit;";
+                        
+                        tbody.innerHTML += `<tr>
+                            <td style="border:1px solid #ddd; padding:8px;">${it.upc}</td>
+                            <td style="border:1px solid #ddd; padding:8px;">${it.nombre}</td>
+                            <td style="border:1px solid #ddd; padding:8px; text-align:center; ${colorClass}">${valAbs}</td>
+                            <td style="border:1px solid #ddd; padding:8px;">${obs}</td>
+                        </tr>`;
+                    }
+
+                    // FILA DE DEFECTOS SEPARADA
+                    if (def > 0) {
+                        let esFilaHija = (diff !== 0);
+                        tbody.innerHTML += `<tr>
+                            <td style="border:1px solid #ddd; padding:8px; color:${esFilaHija ? '#777' : '#000'};">${esFilaHija ? '↳ ' + it.upc : it.upc}</td>
+                            <td style="border:1px solid #ddd; padding:8px; color:${esFilaHija ? '#777' : '#000'};">${esFilaHija ? '↳ ' + it.nombre : it.nombre}</td>
+                            <td style="border:1px solid #ddd; padding:8px; text-align:center; font-weight:bold;">${def}</td>
+                            <td style="border:1px solid #ddd; padding:8px; color:red; font-weight:bold;">Defecto</td>
+                        </tr>`;
+                    }
                 }
             });
 
             if(!tieneDiferencias) {
-                tbody.innerHTML += `<tr><td colspan="5" style="border: 1px solid #ddd; padding: 8px; text-align:center;">Inventario Perfecto. Sin diferencias detectadas.</td></tr>`;
+                // Ahora el colspan es de 4 porque solo hay 4 columnas
+                tbody.innerHTML += `<tr><td colspan="4" style="border: 1px solid #ddd; padding: 8px; text-align:center;">Inventario Perfecto. Sin diferencias detectadas.</td></tr>`;
             }
 
             element.querySelector('#pdf-tot-per').innerText = totalPerdidaMoney.toLocaleString('en-US', {minimumFractionDigits: 2});
@@ -468,7 +503,7 @@
                     
                     if(!esHistorial) {
                         const notif = document.getElementById('notif-final');
-                        notif.innerHTML = `Carátula ${datosLogin.clave || ""} ${datosLogin.tienda || ""} "${fechaStr}".<br>Firmada por todos`;
+                        notif.innerHTML = `Carátula procesada correctamente el ${fechaStr}`;
                         notif.style.display = "block"; document.getElementById('btn-pdf').style.display = "none";
                         confetti(); 
 
@@ -479,10 +514,10 @@
                     }
                 }).catch(error => {
                     document.body.removeChild(element);
-                    alert("Ocurrió un error al generar el PDF. (Verifica permisos de memoria)");
+                    alert("Error de memoria al generar el PDF.");
                     if(!esHistorial){
                         const btn = document.getElementById('btn-pdf');
-                        btn.innerText = "GENERAR PDF Y FINALIZAR"; btn.style.background = "var(--blue)"; btn.disabled = false;
+                        btn.innerText = "REINTENTAR GENERAR PDF"; btn.style.background = "var(--main-color)"; btn.disabled = false;
                     }
                 });
             }, 800); 
@@ -490,7 +525,7 @@
 
         async function generarCaratulaPDF() {
             const btn = document.getElementById('btn-pdf');
-            btn.innerText = "GENERANDO PDF... ESPERA"; btn.style.background = "var(--gray)"; btn.disabled = true;
+            btn.innerText = "PROCESANDO... ESPERA"; btn.style.background = "var(--gray)"; btn.disabled = true;
 
             try {
                 const d = await fetchAPI({action:"search_stock", query:"", filtro:"todos", tienda: tiendaActual});
@@ -498,7 +533,7 @@
                 procesarYDescargarPDF(d.data, firmasCapturadas, fechaStr, false);
             } catch (error) {
                 alert(error.message);
-                btn.innerText = "GENERAR PDF Y FINALIZAR"; btn.style.background = "var(--blue)"; btn.disabled = false;
+                btn.innerText = "GENERAR PDF Y FINALIZAR"; btn.style.background = "var(--main-color)"; btn.disabled = false;
             }
         }
 
@@ -511,7 +546,6 @@
             procesarYDescargarPDF(items, firmas, fechaStr, true);
         }
 
-        // --- CÁMARA (AHORA DESBLOQUEA EL SONIDO EN IPHONE) ---
         function iniciarLector(){ 
             camState = true; 
             document.getElementById('btn-cam-toggle').innerText = "Apagar Cámara"; 
@@ -538,7 +572,6 @@
             modoScan = m; 
             document.getElementById('cam-box').style.display='block'; 
             
-            // TRUCO IPHONE: Desbloquear audio forzosamente al abrir cámara
             let bipAudio = document.getElementById('bip');
             bipAudio.muted = true;
             bipAudio.play().then(() => {
@@ -578,7 +611,36 @@
         function dibujarHistorial(){ document.getElementById('scan-hist').innerHTML = historial.map(h => `<div class="hist-item" style="border-left:4px solid ${h.color}"><span>${h.nombre}</span> <b>+${h.cant}</b></div>`).join(''); }
 
         async function buscarStock(q){ if(q.length < 2) return; try{ const d = await fetchAPI({action:"search_stock", query:q, tienda: tiendaActual}); document.getElementById('res-busc').innerHTML = d.data.map(it => `<div class="card"><b>${it.nombre}</b><br><span class="tag">${it.plataforma}</span> <span style="color:var(--green); font-weight:bold;">$${it.precio}</span><br><small>Sist: ${it.sistema} | Fis: ${it.fisico} | UPC: ${it.upc}</small></div>`).join(''); }catch(e){} }
-        async function buscarGestion(){ try { const d = await fetchAPI({action:"search_stock", query:document.getElementById('q-gest').value, filtro:document.getElementById('filtro-gest').value, tienda: tiendaActual}); document.getElementById('res-gest').innerHTML = d.data.map(it => { const color = getStatusColor(it.fisico, it.sistema, it.defectos); return `<div class="card" style="border-left:8px solid ${color}"><b onclick="editarTotal('${it.upc}', '${it.nombre}')" style="color:var(--blue); text-decoration:underline;">${it.nombre}</b><br><div style="margin: 5px 0;"><span class="tag" style="background:var(--blue); color:white;">${it.plataforma}</span> <span class="tag">UPC: ${it.upc}</span> <span style="font-weight:bold; color:var(--green)">$${it.precio}</span></div><small>Sist: ${it.sistema} | Fis: ${it.fisico} | Def: ${it.defectos}</small><div class="grid-adj"><button class="btn-adj" onclick="ajustar('${it.upc}', -1, 'fisico')">-1 Físico</button><button class="btn-adj" onclick="ajustar('${it.upc}', 1, 'fisico')">+1 Físico</button><div class="btn-def-box" style="grid-column: span 2; display:grid; grid-template-columns: 1fr 2fr; gap:8px;"><button class="btn-adj" style="background:var(--gray); color:white;" onclick="ajustar('${it.upc}', -1, 'defecto')">-1 Def</button><button class="btn-adj" style="background:var(--dark); color:white;" onclick="ajustar('${it.upc}', 1, 'defecto')">⚠️ +1 Defecto</button></div></div></div>`; }).join(''); }catch(e){} }
+        
+        async function buscarGestion(){ 
+            try { 
+                const d = await fetchAPI({action:"search_stock", query:document.getElementById('q-gest').value, filtro:document.getElementById('filtro-gest').value, tienda: tiendaActual}); 
+                document.getElementById('res-gest').innerHTML = d.data.map(it => { 
+                    const def = parseInt(it.defectos) || 0;
+                    const fisBueno = parseInt(it.fisico) || 0;
+                    const totalFis = fisBueno + def;
+                    const color = getStatusColor(totalFis, it.sistema, def); 
+                    return `<div class="card" style="border-left:8px solid ${color}">
+                        <b onclick="editarTotal('${it.upc}', '${it.nombre}')" style="color:var(--accent); text-decoration:underline;">${it.nombre}</b><br>
+                        <div style="margin: 5px 0;">
+                            <span class="tag" style="background:var(--main-color); color:white;">${it.plataforma}</span> 
+                            <span class="tag">UPC: ${it.upc}</span> 
+                            <span style="font-weight:bold; color:var(--green)">$${it.precio}</span>
+                        </div>
+                        <small>Sist: ${it.sistema} | Fis Total: ${totalFis} (Defectos: ${def})</small>
+                        <div class="grid-adj">
+                            <button class="btn-adj" onclick="ajustar('${it.upc}', -1, 'fisico')">-1 Físico</button>
+                            <button class="btn-adj" onclick="ajustar('${it.upc}', 1, 'fisico')">+1 Físico</button>
+                            <div class="btn-def-box" style="grid-column: span 2; display:grid; grid-template-columns: 1fr 2fr; gap:8px;">
+                                <button class="btn-adj" style="background:var(--gray); color:white;" onclick="ajustar('${it.upc}', -1, 'defecto')">-1 Defecto</button>
+                                <button class="btn-adj" style="background:var(--red); color:white;" onclick="ajustar('${it.upc}', 1, 'defecto')">⚠️ +1 Defecto</button>
+                            </div>
+                        </div>
+                    </div>`; 
+                }).join(''); 
+            } catch(e){} 
+        }
+
         async function ajustar(upc, valor, tipo){ try{ await fetchAPI({action:"update_stock", upc:upc, valor:valor, tipo:tipo, tienda: tiendaActual}); buscarGestion(); }catch(e){alert(e.message);} }
         async function editarTotal(upc, nombre){ const n = prompt("Editar Inventario FÍSICO total:\n" + nombre); if(n !== null && n !== "") { try{ await fetchAPI({action:"update_stock", upc:upc, valor: parseInt(n), tipo:"set_total", tienda: tiendaActual}); buscarGestion(); }catch(e){alert(e.message);} } }
 
@@ -588,13 +650,28 @@
                 const d = await fetchAPI({action:"search_stock", query:"", filtro:"todos", tienda: tiendaActual});
                 const dataLimpia = d.data.filter(it => !(it.categoria && String(it.categoria).toLowerCase().includes("telefon")) && !(it.plataforma && String(it.plataforma).toLowerCase().includes("telefon")));
                 
-                let faltantes = [], sobrantes = [], totalPerdidaMoney = 0;
+                let faltantes = [], sobrantes = [], defectuosos = [], totalPerdidaMoney = 0;
                 
-                dataLimpia.forEach(it => { const diff = it.fisico - it.sistema; if(diff < 0) { faltantes.push({...it, diff: Math.abs(diff)}); totalPerdidaMoney += (Math.abs(diff) * it.precio); } else if(diff > 0) { sobrantes.push({...it, diff: diff}); } });
+                dataLimpia.forEach(it => { 
+                    const def = parseInt(it.defectos) || 0;
+                    const totalFis = parseInt(it.fisico) + def;
+                    const diff = totalFis - it.sistema; 
+                    
+                    if(diff < 0) { 
+                        faltantes.push({...it, diff: Math.abs(diff)}); 
+                        totalPerdidaMoney += (Math.abs(diff) * it.precio); 
+                    } else if(diff > 0) { 
+                        sobrantes.push({...it, diff: diff}); 
+                    }
+                    
+                    if(def > 0) {
+                        defectuosos.push({...it, def: def});
+                    }
+                });
                 
                 let titulo = "", msg = "", gif = "", colorFondo = "", audioKey = "";
                 if(faltantes.length === 0 && sobrantes.length === 0) { 
-                    titulo = "¡EXCELENTE!"; msg = "Inventario perfecto."; gif = "https://cdn.wikirby.com/a/aa/KSSU_Kirby_Dance.gif"; colorFondo = "var(--green)"; audioKey = "kirby"; confetti(); 
+                    titulo = "¡EXCELENTE!"; msg = defectuosos.length > 0 ? "Inventario cuadrado (Con defectos)." : "Inventario perfecto."; gif = "https://cdn.wikirby.com/a/aa/KSSU_Kirby_Dance.gif"; colorFondo = "var(--green)"; audioKey = "kirby"; confetti(); 
                 } else if(faltantes.length > 0 && sobrantes.length > 0) { 
                     titulo = "Atención"; msg = "Hay tanto faltantes como sobrantes."; gif = "https://i.pinimg.com/originals/0c/3a/14/0c3a146cf1cb9d6bcb8cd1df8b657b7a.gif"; colorFondo = "var(--dark)"; audioKey = "boo"; 
                 } else if(faltantes.length > 0) { 
@@ -604,8 +681,24 @@
                 }
 
                 document.getElementById('final-titulo').innerText = titulo; document.getElementById('final-titulo').style.color = colorFondo; document.getElementById('final-msg').innerText = msg; document.getElementById('final-gif-container').innerHTML = `<img src="${gif}" class="resumen-img">`; reproducirResultado(audioKey);
-                let htmlDetalle = "<h4>Detalle:</h4>"; faltantes.forEach(f => { htmlDetalle += `<div class="item-resumen"><b>${f.diff} pzas</b> - ${f.nombre}<br><small>UPC: ${f.upc} | <b>Total: $${f.diff * f.precio}</b></small></div>`; }); if (sobrantes.length > 0) { htmlDetalle += "<h4 style='margin-top:15px;'>Sobrantes:</h4>"; sobrantes.forEach(s => { htmlDetalle += `<div class="item-resumen" style="border-left: 4px solid var(--orange);"><b>${s.diff} pzas</b> - ${s.nombre}<br><small>UPC: ${s.upc}</small></div>`; }); }
-                document.getElementById('final-detalles').innerHTML = htmlDetalle; document.getElementById('final-totales').style.background = colorFondo; document.getElementById('final-totales').style.color = "white"; document.getElementById('final-totales').innerHTML = `Pérdida Total Faltante: $${totalPerdidaMoney.toLocaleString()}`;
+                
+                let htmlDetalle = "<h4>Detalle:</h4>"; 
+                faltantes.forEach(f => { htmlDetalle += `<div class="item-resumen"><b>${f.diff} pzas</b> - ${f.nombre}<br><small>UPC: ${f.upc} | <b>Total: $${f.diff * f.precio}</b></small></div>`; }); 
+                
+                if (sobrantes.length > 0) { 
+                    htmlDetalle += "<h4 style='margin-top:15px; color:var(--orange);'>Sobrantes:</h4>"; 
+                    sobrantes.forEach(s => { htmlDetalle += `<div class="item-resumen" style="border-left: 4px solid var(--orange);"><b>${s.diff} pzas</b> - ${s.nombre}<br><small>UPC: ${s.upc}</small></div>`; }); 
+                }
+                
+                if (defectuosos.length > 0) { 
+                    htmlDetalle += "<h4 style='margin-top:15px; color:var(--red);'>Defectos Detectados:</h4>"; 
+                    defectuosos.forEach(d => { htmlDetalle += `<div class="item-resumen" style="border-left: 4px solid var(--red);"><b>${d.def} pzas</b> - ${d.nombre}<br><small>UPC: ${d.upc}</small></div>`; }); 
+                }
+
+                document.getElementById('final-detalles').innerHTML = htmlDetalle; 
+                document.getElementById('final-totales').style.background = colorFondo; 
+                document.getElementById('final-totales').style.color = "white"; 
+                document.getElementById('final-totales').innerHTML = `Pérdida Total Faltante: $${totalPerdidaMoney.toLocaleString()}`;
             } catch(e) { alert(e.message); irA('scr-gest'); }
         }
 

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gameplanet Inventario v1.8.3</title>
+    <title>Gameplanet Inventario v1.8.4</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -47,10 +47,10 @@
     </style>
 </head>
 <body>
-    <audio id="bip" preload="auto"><source src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" type="audio/mpeg"></audio>
+    <audio id="bip" preload="auto" playsinline><source src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" type="audio/mpeg"></audio>
 
     <div id="scr-login" class="screen active">
-        <h2 style="text-align:center; color:var(--blue); margin-top:40px;">Gameplanet <small>v1.8.3</small></h2>
+        <h2 style="text-align:center; color:var(--blue); margin-top:40px;">Gameplanet <small>v1.8.4</small></h2>
         <div class="card">
             <input type="text" id="l-u" placeholder="Usuario (ID)">
             <input type="password" id="l-p" placeholder="Contraseña">
@@ -92,7 +92,9 @@
             <button class="btn" style="background:var(--dark); margin-top:10px;" onclick="abrirHistorial()">📁 HISTORIAL DE REPORTES</button>
         </div>
         <input type="file" id="f-in" hidden accept=".xlsx,.xls,.csv">
-        <button class="btn" style="background:#666; margin-top:30px;" onclick="location.reload()">Cerrar Sesión</button>
+        
+        <button class="btn" style="background:var(--red); margin-top:30px;" onclick="forzarActualizacion()">🔄 FORZAR ACTUALIZACIÓN</button>
+        <button class="btn" style="background:#666; margin-top:10px;" onclick="location.reload()">Cerrar Sesión</button>
     </div>
 
     <div id="scr-historial" class="screen">
@@ -217,9 +219,8 @@
         // AQUÍ PON TU URL DE GOOGLE APPS SCRIPT
         const API = "https://script.google.com/macros/s/AKfycby4V5kLE7fdln0QedyYFvT_yHGgDUxevwe_INaO8UUMo5jGl3Lt6fmfw7lOHIpE6gd1dg/exec"; 
         
-        // --- FUNCIÓN FETCH ---
         async function fetchAPI(payload) {
-            if (!API || API === "TU_URL_DE_GOOGLE_APPS_SCRIPT_AQUI") {
+            if (!API || API === "https://script.google.com/macros/s/AKfycby4V5kLE7fdln0QedyYFvT_yHGgDUxevwe_INaO8UUMo5jGl3Lt6fmfw7lOHIpE6gd1dg/exec") {
                 throw new Error("⚠️ Olvidaste poner tu URL de Google Apps Script en el código.");
             }
             try {
@@ -256,6 +257,13 @@
         function toggleMute() { muted = !muted; document.getElementById('mute-btn').innerText = muted ? "🔇" : "🔊"; if(audioActual) audioActual.muted = muted; }
         function cerrarResumen() { if(audioActual){audioActual.pause();} irA('scr-menu'); }
         function irA(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+
+        // FUNCIÓN NUEVA PARA FORZAR LA ACTUALIZACIÓN SALTÁNDOSE LA CACHÉ
+        function forzarActualizacion() {
+            if(confirm("¿Forzar actualización de la aplicación? Esto descargará la versión más reciente del sistema.")) {
+                window.location.href = window.location.pathname + "?v=" + new Date().getTime();
+            }
+        }
 
         async function login(){
             habilitarAudios();
@@ -390,7 +398,6 @@
             abrirFirmas(); 
         }
 
-        // --- CREADOR DE PDF (¡CORRECCIÓN APLICADA PARA EVITAR EL ERROR toLowerCase!) ---
         function procesarYDescargarPDF(dataItems, dataFirmas, fechaStr, esHistorial = false) {
             const element = document.getElementById('pdf-molde').cloneNode(true);
             element.id = "pdf-render-target";
@@ -412,7 +419,6 @@
             let tieneDiferencias = false;
 
             dataItems.forEach(it => {
-                // CORRECCIÓN: Convertir a String antes de usar toLowerCase para evitar que truene si hay números en el excel
                 if (it.categoria && String(it.categoria).toLowerCase().includes("telefon")) return;
                 if (it.plataforma && String(it.plataforma).toLowerCase().includes("telefon")) return;
 
@@ -505,9 +511,7 @@
             procesarYDescargarPDF(items, firmas, fechaStr, true);
         }
 
-        // --- CÁMARA OPTIMIZADA ---
-        const getStatusColor = (f, s, d) => (d > 0 ? 'var(--yellow)' : (f == s ? 'var(--green)' : (f > s ? 'var(--orange)' : 'var(--red)')));
-        
+        // --- CÁMARA (AHORA DESBLOQUEA EL SONIDO EN IPHONE) ---
         function iniciarLector(){ 
             camState = true; 
             document.getElementById('btn-cam-toggle').innerText = "Apagar Cámara"; 
@@ -529,7 +533,23 @@
         }
 
         function toggleCam(){ if(camState) { zxingReader.reset(); Quagga.stop(); camState = false; document.getElementById('btn-cam-toggle').innerText = "Encender Cámara"; } else { iniciarLector(); } }
-        function abrirCam(m){ modoScan = m; document.getElementById('cam-box').style.display='block'; iniciarLector(); }
+        
+        function abrirCam(m){ 
+            modoScan = m; 
+            document.getElementById('cam-box').style.display='block'; 
+            
+            // TRUCO IPHONE: Desbloquear audio forzosamente al abrir cámara
+            let bipAudio = document.getElementById('bip');
+            bipAudio.muted = true;
+            bipAudio.play().then(() => {
+                bipAudio.pause();
+                bipAudio.currentTime = 0;
+                bipAudio.muted = false;
+            }).catch(() => {});
+
+            iniciarLector(); 
+        }
+        
         function cerrarCam(){ zxingReader.reset(); Quagga.stop(); document.getElementById('cam-box').style.display='none'; }
         function cerrarModalAlias(){ document.getElementById('modal-alias').style.display='none'; iniciarLector(); }
 
@@ -554,6 +574,7 @@
             } catch(e) { alert(e.message); escaneando = false; }
         }
 
+        const getStatusColor = (f, s, d) => (d > 0 ? 'var(--yellow)' : (f == s ? 'var(--green)' : (f > s ? 'var(--orange)' : 'var(--red)')));
         function dibujarHistorial(){ document.getElementById('scan-hist').innerHTML = historial.map(h => `<div class="hist-item" style="border-left:4px solid ${h.color}"><span>${h.nombre}</span> <b>+${h.cant}</b></div>`).join(''); }
 
         async function buscarStock(q){ if(q.length < 2) return; try{ const d = await fetchAPI({action:"search_stock", query:q, tienda: tiendaActual}); document.getElementById('res-busc').innerHTML = d.data.map(it => `<div class="card"><b>${it.nombre}</b><br><span class="tag">${it.plataforma}</span> <span style="color:var(--green); font-weight:bold;">$${it.precio}</span><br><small>Sist: ${it.sistema} | Fis: ${it.fisico} | UPC: ${it.upc}</small></div>`).join(''); }catch(e){} }
@@ -565,8 +586,6 @@
             irA('scr-final'); document.getElementById('final-titulo').innerText = "Analizando...";
             try {
                 const d = await fetchAPI({action:"search_stock", query:"", filtro:"todos", tienda: tiendaActual});
-                
-                // CORRECCIÓN: Convertir a string para evitar que reviente si hay números
                 const dataLimpia = d.data.filter(it => !(it.categoria && String(it.categoria).toLowerCase().includes("telefon")) && !(it.plataforma && String(it.plataforma).toLowerCase().includes("telefon")));
                 
                 let faltantes = [], sobrantes = [], totalPerdidaMoney = 0;

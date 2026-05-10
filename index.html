@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Inventario Pro Beta v1.9.9 Elite</title>
+    <title>Inventario Pro Beta v1.9.9.1</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -19,7 +19,6 @@
         .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 15px; position: relative; }
         .btn { background: var(--main-color); color: white; border: none; padding: 14px; width: 100%; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
         .btn:active { transform: scale(0.98); opacity: 0.9; }
-        .btn:disabled { opacity: 0.7; cursor: not-allowed; }
         input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         
         .mascot-container { text-align: center; margin-bottom: 20px; }
@@ -28,7 +27,7 @@
         #cam-box { display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:100; background:#000; }
         #v-container { position: relative; width: 100%; height: 30%; overflow: hidden; background:#000; }
         #v { width:100%; height:100%; object-fit:cover; }
-        .scanner-line { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: var(--red); box-shadow: 0 0 10px var(--red); animation: scanMove 1.5s linear infinite; z-index: 110; will-change: transform; }
+        .scanner-line { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: var(--red); box-shadow: 0 0 10px var(--red); animation: scanMove 1.5s linear infinite; z-index: 110; }
         @keyframes scanMove { 0% { transform: translateY(10px); } 50% { transform: translateY(28vh); } 100% { transform: translateY(10px); } }
         
         #scan-info { position:absolute; bottom:0; width:100%; height:70%; background:white; padding:20px; border-top:5px solid var(--main-color); overflow-y:auto; box-sizing:border-box; border-radius: 20px 20px 0 0; }
@@ -63,7 +62,7 @@
     <div id="scr-login" class="screen active">
         <div class="mascot-container" style="margin-top: 50px;">
             <img src="https://cdn-icons-png.flaticon.com/512/2043/2043231.png" class="mascot-img" alt="Mascota Beta">
-            <h2 style="color:var(--main-color); margin-top:10px;">Inventario Pro <small>v1.9.9 Elite</small></h2>
+            <h2 style="color:var(--main-color); margin-top:10px;">Inventario Pro <small>v1.9.9.1 Elite</small></h2>
         </div>
         <div class="card">
             <input type="text" id="l-u" placeholder="Usuario (ID)">
@@ -142,8 +141,12 @@
     <div id="scr-busc" class="screen">
         <button onclick="irA('scr-menu')" style="margin-bottom:15px; width:auto; padding:8px 15px; background:#666; border:none; color:white; border-radius:5px;">⬅️ Volver</button>
         <div class="card">
-            <input type="text" placeholder="Nombre o UPC..." oninput="debounceSearch(this.value, 'busc')">
-            <small style="color:var(--gray);">Buscando en catálogo general...</small>
+            <select id="filtro-busc" onchange="buscarStock(document.getElementById('q-busc').value)" style="margin-bottom: 10px;">
+                <option value="existencia" selected>En Existencia</option>
+                <option value="agotados">Agotados</option>
+                <option value="todos">Todo el catálogo</option>
+            </select>
+            <input type="text" id="q-busc" placeholder="Nombre o UPC..." oninput="debounceSearch(this.value, 'busc')">
         </div>
         <div id="res-busc"></div>
     </div>
@@ -257,7 +260,7 @@
 
     <script>
         // AQUÍ VA TU URL DE GOOGLE APPS SCRIPT
-        const API = "https://script.google.com/macros/s/AKfycbyLG2yueEdzhGgB_j5oWH2B8LrR4uije23b37YQQSB2MW3YRTQDaD7jr4kxuxvCrgrqxQ/exec"; 
+        const API = "https://script.google.com/macros/s/AKfycbyNZue_A1uhvlj2_x9SJSS8x_3puAR0jM1HoAfaYV7oqQX11R-RDFnMXqTOQWJVSjkZnQ/exec"; 
         
         async function fetchAPI(payload) {
             if (!API || API === "TU_URL_DE_APPS_SCRIPT_AQUI" || API === "TU_URL_DE_GOOGLE_APPS_SCRIPT_AQUI") {
@@ -298,7 +301,6 @@
             }
         }
 
-        // --- SISTEMA DE REGISTRO ---
         function abrirRegistro(t) { 
             tipoReg = t; 
             document.getElementById('campos-tienda').style.display = t==='normal' ? 'block' : 'none'; 
@@ -353,7 +355,6 @@
             } catch(e) { alert(e.message); }
         }
 
-        // --- FUNCIONES DISTRITALES ---
         async function cargarReportesDistritales(distrito) {
             const cont = document.getElementById('lista-reportes-distrito');
             try {
@@ -387,7 +388,6 @@
             renderizarListaDistrito(filtrados);
         }
 
-        // --- HISTORIAL TIENDA ---
         async function abrirHistorial() {
             irA('scr-historial');
             const cont = document.getElementById('lista-historial');
@@ -419,7 +419,6 @@
             abrirHistorial(); 
         }
 
-        // --- FIRMAS ---
         async function abrirFirmas() {
             irA('scr-firmas');
             document.getElementById('f-suc').innerText = datosLogin.clave || "---"; 
@@ -500,7 +499,6 @@
             abrirFirmas(); 
         }
 
-        // --- SISTEMA DEBOUCE PARA BÚSQUEDAS (Evita lag en celulares) ---
         function debounceSearch(val, tipo) {
             clearTimeout(searchTimeout);
             if(val.length < 3 && val.length > 0) return;
@@ -511,7 +509,6 @@
             }, 600);
         }
 
-        // --- CARGA DE EXCEL CON LOADER VISUAL ELITE ---
         document.getElementById('f-in').onchange = e => {
             const archivo = e.target.files[0];
             if(!archivo) return;
@@ -541,7 +538,6 @@
             setTimeout(() => { fr.readAsArrayBuffer(archivo); }, 100);
         };
 
-        // --- CREADOR DE PDF (PLATAFORMA Y CATEGORÍA) ---
         function procesarYDescargarPDF(dataItems, dataFirmas, fechaStr, infoTienda, esHistorial = false) {
             const element = document.getElementById('pdf-molde').cloneNode(true);
             element.id = "pdf-render-target";
@@ -689,7 +685,6 @@
             procesarYDescargarPDF(items, firmas, fechaStr, rep, true);
         }
 
-        // --- CÁMARA Y ESCÁNER ---
         function iniciarLector(){ 
             camState = true; 
             document.getElementById('btn-cam-toggle').innerText = "Apagar Cámara"; 
@@ -755,11 +750,12 @@
         function dibujarHistorial(){ document.getElementById('scan-hist').innerHTML = historial.map(h => `<div class="hist-item" style="border-left:4px solid ${h.color}"><span>${h.nombre}</span> <b>+${h.cant}</b></div>`).join(''); }
 
         async function buscarStock(q){ 
-            if(q.length < 2) return; 
+            if(q.length < 2) return;
             const cont = document.getElementById('res-busc');
+            const filtroSeleccionado = document.getElementById('filtro-busc').value;
             cont.innerHTML = "<p style='text-align:center;'>Buscando...</p>";
             try{ 
-                const d = await fetchAPI({action:"search_stock", query:q, tienda: tiendaActual}); 
+                const d = await fetchAPI({action:"search_stock", query:q, filtro: filtroSeleccionado, tienda: tiendaActual}); 
                 cont.innerHTML = d.data.map(it => `<div class="card"><b>${it.nombre}</b><br><span class="tag">${it.plataforma}</span> <span style="color:var(--green); font-weight:bold;">$${it.precio}</span><br><small>Sist: ${it.sistema} | Fis: ${it.fisico} | UPC: ${it.upc}</small></div>`).join(''); 
                 if(d.data.length === 0) cont.innerHTML = "<p>Sin resultados.</p>";
             }catch(e){} 

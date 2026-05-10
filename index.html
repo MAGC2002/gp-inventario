@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Inventario Pro Beta v1.9.9.1</title>
+    <title>Inventario Pro Beta v1.9.9.2 Elite</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -62,7 +62,7 @@
     <div id="scr-login" class="screen active">
         <div class="mascot-container" style="margin-top: 50px;">
             <img src="https://cdn-icons-png.flaticon.com/512/2043/2043231.png" class="mascot-img" alt="Mascota Beta">
-            <h2 style="color:var(--main-color); margin-top:10px;">Inventario Pro <small>v1.9.9.1 Elite</small></h2>
+            <h2 style="color:var(--main-color); margin-top:10px;">Inventario Pro <small>v1.9.9.2 Elite</small></h2>
         </div>
         <div class="card">
             <input type="text" id="l-u" placeholder="Usuario (ID)">
@@ -155,7 +155,7 @@
         <button onclick="irA('scr-menu')" style="margin-bottom:15px; width:auto; padding:8px 15px; background:#666; border:none; color:white; border-radius:5px;">⬅️ Volver</button>
         <h3>Gestión de Existencias</h3>
         <select id="filtro-gest" onchange="buscarGestion()">
-            <option value="todos" selected>Todos</option>
+            <option value="gestion_todos" selected>Con Existencia/Movimiento</option>
             <option value="faltante">Faltantes (🔴)</option>
             <option value="sobrante">Sobrantes (🟠)</option>
             <option value="defectos">Defectos (⚠️)</option>
@@ -259,8 +259,8 @@
     </div>
 
     <script>
-        // AQUÍ VA TU URL DE GOOGLE APPS SCRIPT
-        const API = "https://script.google.com/macros/s/AKfycbyNZue_A1uhvlj2_x9SJSS8x_3puAR0jM1HoAfaYV7oqQX11R-RDFnMXqTOQWJVSjkZnQ/exec"; 
+        // ¡SUPER IMPORTANTE! PEGA AQUÍ TU URL DE GOOGLE APPS SCRIPT
+        const API = "https://script.google.com/macros/s/AKfycbzDyOAS2Rji6so90oSfyH-D2wTry3OtRi7F5W4Cr9CX5lF0hhIGPIYkZtoqxyrTZDGJ2A/exec"; 
         
         async function fetchAPI(payload) {
             if (!API || API === "TU_URL_DE_APPS_SCRIPT_AQUI" || API === "TU_URL_DE_GOOGLE_APPS_SCRIPT_AQUI") {
@@ -499,11 +499,12 @@
             abrirFirmas(); 
         }
 
+        // --- SISTEMA DEBOUCE PARA BÚSQUEDAS ---
         function debounceSearch(val, tipo) {
             clearTimeout(searchTimeout);
             if(val.length < 3 && val.length > 0) return;
             searchTimeout = setTimeout(() => {
-                if(tipo === 'busc') buscarStock(val);
+                if(tipo === 'busc') buscarStock(document.getElementById('q-busc').value);
                 if(tipo === 'gest') buscarGestion();
                 if(tipo === 'alias') buscarParaAlias(val);
             }, 600);
@@ -527,7 +528,7 @@
                     await fetchAPI({ action:"upload_inventory", items: items, tienda: tiendaActual, reset_fisico: borrarFisico }); 
                     
                     document.getElementById('loader-excel').style.display = 'none';
-                    alert("Carga de Excel masiva completada con éxito.");
+                    alert("Carga de Excel completada con éxito.");
                     document.getElementById('f-in').value = ""; 
                 } catch(err) { 
                     document.getElementById('loader-excel').style.display = 'none';
@@ -750,7 +751,7 @@
         function dibujarHistorial(){ document.getElementById('scan-hist').innerHTML = historial.map(h => `<div class="hist-item" style="border-left:4px solid ${h.color}"><span>${h.nombre}</span> <b>+${h.cant}</b></div>`).join(''); }
 
         async function buscarStock(q){ 
-            if(q.length < 2) return;
+            if(q.length < 2 && document.getElementById('filtro-busc').value !== 'todos') return;
             const cont = document.getElementById('res-busc');
             const filtroSeleccionado = document.getElementById('filtro-busc').value;
             cont.innerHTML = "<p style='text-align:center;'>Buscando...</p>";

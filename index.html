@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Inventario Pro Beta v1.9.9.7</title>
+    <title>Inventario Pro Beta v1.9.9.9 Precision</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -29,7 +29,7 @@
         #v-container { position: relative; width: 100%; height: 30%; overflow: hidden; background:#000; }
         #v { width:100%; height:100%; object-fit:cover; }
         
-        /* CERO LAG: Nueva mira de francotirador estática, reemplaza la animación roja */
+        /* CERO LAG: Nueva mira de francotirador estática */
         .scanner-target { position: absolute; top: 50%; left: 50%; width: 70%; height: 60%; transform: translate(-50%, -50%); border: 2px solid rgba(46, 204, 113, 0.4); box-sizing: border-box; z-index: 110; border-radius: 10px; }
         .scanner-target::before, .scanner-target::after { content: ''; position: absolute; width: 40px; height: 40px; border-color: var(--green); border-style: solid; }
         .scanner-target::before { top: -2px; left: -2px; border-width: 4px 0 0 4px; border-top-left-radius: 10px; }
@@ -67,7 +67,7 @@
     <div id="scr-login" class="screen active">
         <div class="mascot-container" style="margin-top: 50px;">
             <img src="https://cdn-icons-png.flaticon.com/512/2043/2043231.png" class="mascot-img" alt="Mascota Beta">
-            <h2 style="color:var(--main-color); margin-top:10px;">Inventario Pro <small>v1.9.9.7</small></h2>
+            <h2 style="color:var(--main-color); margin-top:10px;">Inventario Pro <small>v1.9.9.9 Precision</small></h2>
         </div>
         <div class="card">
             <input type="text" id="l-u" placeholder="Usuario (ID)">
@@ -220,8 +220,8 @@
     </div>
 
     <script>
-        // ¡RECUERDA PEGAR TU URL AQUÍ!
-        const API = "https://script.google.com/macros/s/AKfycbw0ZEO6F7BSZG7zJmEqBNWQTqpjqig7MF2sH0fCfWX6PeYCi-XQOJ1wyTWYS9en8Qbibg/exec"; 
+        // PEGA AQUÍ TU URL DE GOOGLE APPS SCRIPT
+        const API = "https://script.google.com/macros/s/AKfycbzGlwu6CQTxgUmHAyslMESQAS7_Ok7P0_2YqMdU7lDIxx3n3RqAyzxHXQZ_JKs9SRQ4EQ/exec"; 
         
         async function fetchAPI(payload) {
             if (!API || API === "TU_URL_DE_APPS_SCRIPT_AQUI" || API === "TU_URL_DE_GOOGLE_APPS_SCRIPT_AQUI") {
@@ -498,6 +498,7 @@
             setTimeout(() => { fr.readAsArrayBuffer(archivo); }, 100);
         };
 
+        // ====== GENERADOR DE PDF NATIVO CON FILTRO DE PRECISIÓN ======
         function procesarYDescargarPDF(dataItems, dataFirmas, fechaStr, infoTienda, esHistorial = false) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('p', 'pt', 'letter');
@@ -518,12 +519,16 @@
             let tieneDiferencias = false;
 
             dataItems.forEach(it => {
-                if (it.categoria && String(it.categoria).toLowerCase().includes("telefon")) return;
-                if (it.plataforma && String(it.plataforma).toLowerCase().includes("telefon")) return;
+                // FILTRO QUIRÚRGICO: Solo ignorar si contiene "planes" Y "telefon"
+                const cat = String(it.categoria).toLowerCase();
+                const plat = String(it.plataforma).toLowerCase();
+                if (cat.includes("planes") && (cat.includes("telefon") || cat.includes("telefonía"))) return;
+                if (plat.includes("planes") && (plat.includes("telefon") || plat.includes("telefonía"))) return;
 
                 const sist = parseInt(it.sistema) || 0;
                 const fisBueno = parseInt(it.fisico) || 0;
                 const def = parseInt(it.defectos) || 0;
+                
                 const totalFis = fisBueno + def;
                 const diff = totalFis - sist;
 
@@ -551,7 +556,9 @@
                 theme: 'grid',
                 headStyles: { fillColor: [44, 62, 80], textColor: [255,255,255] },
                 styles: { fontSize: 8, cellPadding: 4 },
-                columnStyles: { 4: { halign: 'center', fontStyle: 'bold' } },
+                columnStyles: {
+                    4: { halign: 'center', fontStyle: 'bold' }
+                },
                 didParseCell: function(data) {
                     if (data.section === 'body' && data.column.index === 5) {
                         if (data.cell.raw === 'Sobrante') data.cell.styles.textColor = [243, 156, 18];
@@ -562,7 +569,7 @@
             });
 
             let finalY = doc.lastAutoTable.finalY + 30;
-            if (finalY > 650) { doc.addPage(); finalY = 40; } 
+            if (finalY > 650) { doc.addPage(); finalY = 40; }
 
             doc.setFontSize(12);
             doc.setFont("helvetica", "bold");
@@ -755,11 +762,19 @@
         async function ajustar(upc, valor, tipo){ try{ await fetchAPI({action:"update_stock", upc:upc, valor:valor, tipo:tipo, tienda: tiendaActual}); buscarGestion(); }catch(e){alert(e.message);} }
         async function editarTotal(upc, nombre){ const n = prompt("Editar Inventario FÍSICO total:\n" + nombre); if(n !== null && n !== "") { try{ await fetchAPI({action:"update_stock", upc:upc, valor: parseInt(n), tipo:"set_total", tienda: tiendaActual}); buscarGestion(); }catch(e){alert(e.message);} } }
 
+        // ====== GENERADOR DE RESUMEN VISUAL (KIRBY/MARIO) CON FILTRO DE PRECISIÓN ======
         async function generarFinal(){
             irA('scr-final'); document.getElementById('final-titulo').innerText = "Analizando...";
             try {
                 const d = await fetchAPI({action:"search_stock", query:"", filtro:"todos", tienda: tiendaActual, is_report: true});
-                const dataLimpia = d.data.filter(it => !(it.categoria && String(it.categoria).toLowerCase().includes("telefon")) && !(it.plataforma && String(it.plataforma).toLowerCase().includes("telefon")));
+                
+                // FILTRO QUIRÚRGICO APLICADO AQUÍ TAMBIÉN
+                const dataLimpia = d.data.filter(it => {
+                    const cat = String(it.categoria).toLowerCase();
+                    const plat = String(it.plataforma).toLowerCase();
+                    const esPlanTel = (cat.includes("planes") && (cat.includes("telefon") || cat.includes("telefonía"))) || (plat.includes("planes") && (plat.includes("telefon") || plat.includes("telefonía")));
+                    return !esPlanTel; // Si NO es plan de telefonía, lo deja pasar.
+                });
                 
                 let faltantes = [], sobrantes = [], defectuosos = [], totalPerdidaMoney = 0;
                 

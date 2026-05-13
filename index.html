@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Inventario Pro Beta v1.9.9.12 ZXing</title>
+    <title>Inventario Pro Beta v1.9.9.13 Full Detail</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -64,7 +64,7 @@
     <div id="scr-login" class="screen active">
         <div class="mascot-container" style="margin-top: 50px;">
             <img src="https://cdn-icons-png.flaticon.com/512/2043/2043231.png" class="mascot-img" alt="Mascota Beta">
-            <h2 style="color:var(--main-color); margin-top:10px;">Inventario Pro <small>v1.9.9.12 ZXing</small></h2>
+            <h2 style="color:var(--main-color); margin-top:10px;">Inventario Pro <small>v1.9.9.13 Full Detail</small></h2>
         </div>
         <div class="card">
             <input type="text" id="l-u" placeholder="Usuario (ID)">
@@ -222,14 +222,14 @@
         
         async function fetchAPI(payload) {
             if (!API || API === "TU_URL_DE_APPS_SCRIPT_AQUI" || API === "TU_URL_DE_GOOGLE_APPS_SCRIPT_AQUI") {
-                throw new Error("⚠️ Olvidaste poner tu URL de Google Apps Script.");
+                throw new Error("⚠️ Olvidaste poner tu URL de Google Apps Script en el código.");
             }
             try {
                 const response = await fetch(API, {
                     method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(payload)
                 });
                 return await response.json();
-            } catch (error) { throw new Error("No hay conexión con el servidor."); }
+            } catch (error) { throw new Error("No hay conexión segura con el servidor. Revisa tu internet."); }
         }
         
         // MOTOR ZXING
@@ -253,20 +253,39 @@
         function cerrarResumen() { if(audioActual){audioActual.pause();} irA('scr-menu'); }
         function irA(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById(id).classList.add('active'); window.scrollTo(0,0); }
 
-        function forzarActualizacion() { if(confirm("¿Forzar actualización?")) { window.location.href = window.location.pathname + "?v=" + new Date().getTime(); } }
+        function forzarActualizacion() {
+            if(confirm("¿Forzar actualización de la aplicación? Esto descargará la versión más reciente del sistema.")) {
+                window.location.href = window.location.pathname + "?v=" + new Date().getTime();
+            }
+        }
 
-        function abrirRegistro(t) { tipoReg = t; document.getElementById('campos-tienda').style.display = t==='normal' ? 'block' : 'none'; irA('scr-reg'); }
+        function abrirRegistro(t) { 
+            tipoReg = t; 
+            document.getElementById('campos-tienda').style.display = t==='normal' ? 'block' : 'none'; 
+            document.getElementById('titulo-reg').innerText = t==='normal' ? 'Registro de Personal' : 'Registro Distrital'; 
+            document.getElementById('r-d').placeholder = t==='normal' ? 'Zona/Distrito' : 'Zonas (Si son varias, usa comas)';
+            irA('scr-reg'); 
+        }
 
         async function registro(){
             let tInput = tipoReg === 'normal' ? document.getElementById('r-t').value : "0";
             let cInput = tipoReg === 'normal' ? document.getElementById('r-c').value.toUpperCase() : "NA";
             let ntInput = tipoReg === 'normal' ? document.getElementById('r-nt').value : "NA";
             let pin = "";
-            if(tipoReg === 'distrital') { pin = prompt("🔒 PIN MAESTRO:"); if(!pin) return; }
+            
+            if(tipoReg === 'distrital') {
+                pin = prompt("🔒 INGRESE PIN MAESTRO PARA ACCESO DISTRITAL:");
+                if(!pin) return;
+            }
             try {
-                const payload = { action:"register", id:document.getElementById('r-u').value, pass:document.getElementById('r-p').value, nombre:document.getElementById('r-n').value, tienda: tInput, clave: cInput, nombre_tienda: ntInput, distrito:document.getElementById('r-d').value, admin_pin: pin };
+                const payload = { 
+                    action:"register", id:document.getElementById('r-u').value, pass:document.getElementById('r-p').value, 
+                    nombre:document.getElementById('r-n').value, tienda: tInput, clave: cInput, 
+                    nombre_tienda: ntInput, distrito:document.getElementById('r-d').value, admin_pin: pin 
+                };
                 const d = await fetchAPI(payload);
-                if(d.success) { alert("Usuario creado"); irA('scr-login'); } else { alert("Error: " + d.error); }
+                if(d.success) { alert("Usuario creado exitosamente"); irA('scr-login'); } 
+                else { alert("Error del servidor: " + (d.error || "Datos incompletos.")); }
             } catch(e) { alert(e.message); }
         }
 
@@ -277,167 +296,356 @@
                 if(d.success){ 
                     datosLogin = d; tiendaActual = d.tienda; miRol = d.rol;
                     if(miRol === "Distrital") {
-                        irA('scr-distrital'); document.getElementById('txt-dist-name').innerText = d.distrito; document.getElementById('txt-dist-user').innerText = d.nombre; cargarReportesDistritales(d.distrito);
+                        irA('scr-distrital');
+                        document.getElementById('txt-dist-name').innerText = d.distrito;
+                        document.getElementById('txt-dist-user').innerText = d.nombre;
+                        cargarReportesDistritales(d.distrito);
                     } else {
-                        document.getElementById('txt-u').innerText = d.nombre; document.getElementById('txt-t').innerText = d.tienda;
-                        const textoJefe = d.nombre_distrital !== "NA" ? `(Jefe: ${d.nombre_distrital})` : ""; document.getElementById('txt-jefe-menu').innerText = textoJefe;
+                        document.getElementById('txt-u').innerText = d.nombre;
+                        document.getElementById('txt-t').innerText = d.tienda;
+                        const textoJefe = d.nombre_distrital !== "NA" ? `(Jefe: ${d.nombre_distrital})` : "";
+                        document.getElementById('txt-jefe-menu').innerText = textoJefe;
+
                         if(miRol === "Gerente") document.getElementById('area-gerente').style.display = 'block';
                         irA('scr-menu');
                     }
-                } else alert("Credenciales incorrectas");
+                } else alert("Error de acceso o credenciales incorrectas");
             } catch(e) { alert(e.message); }
         }
 
         async function cargarReportesDistritales(distrito) {
+            const cont = document.getElementById('lista-reportes-distrito');
             try {
                 const d = await fetchAPI({action:"get_reports_distrital", distrito: distrito});
-                reportesCargados = d.data || []; renderizarListaDistrito(reportesCargados);
-            } catch(e) { document.getElementById('lista-reportes-distrito').innerHTML = "<p>Error.</p>"; }
+                reportesCargados = d.data || [];
+                renderizarListaDistrito(reportesCargados);
+            } catch(e) { cont.innerHTML = "<p>Error al conectar.</p>"; }
         }
 
         function renderizarListaDistrito(lista) {
             const cont = document.getElementById('lista-reportes-distrito');
-            if(lista.length === 0) { cont.innerHTML = "<p>Sin reportes.</p>"; return; }
+            if(lista.length === 0) { cont.innerHTML = "<p>No hay reportes recientes asignados a tus distritos.</p>"; return; }
+            
             let html = "";
             lista.slice().reverse().forEach(rep => {
                 html += `<div class="card" style="display:flex; justify-content:space-between; align-items:center;">
-                    <div><b>Tienda ${rep.tienda}</b><br><small>${new Date(rep.fecha).toLocaleDateString()}</small></div>
-                    <button class="btn" style="width:auto; padding:8px; font-size:13px;" onclick="reGenerarPDF('${rep.id}')">📄 Ver</button>
+                    <div>
+                        <b>Tienda ${rep.tienda} (${rep.clave})</b><br>
+                        <small>${rep.nombre_tienda || "---"}</small><br>
+                        <small>${new Date(rep.fecha).toLocaleDateString()} - Zona: ${rep.distrito}</small>
+                    </div>
+                    <button class="btn" style="width:auto; padding:8px; font-size:13px; background:var(--accent);" onclick="reGenerarPDF('${rep.id}')">📄 Ver Carátula</button>
                 </div>`;
             });
             cont.innerHTML = html;
         }
 
+        function filtrarTiendasDistrito(q) {
+            if(!q) return renderizarListaDistrito(reportesCargados);
+            const filtrados = reportesCargados.filter(r => String(r.tienda).includes(q) || String(r.clave).toLowerCase().includes(q.toLowerCase()));
+            renderizarListaDistrito(filtrados);
+        }
+
         async function abrirHistorial() {
-            irA('scr-historial'); const cont = document.getElementById('lista-historial'); cont.innerHTML = "<p>Cargando...</p>";
+            irA('scr-historial');
+            const cont = document.getElementById('lista-historial');
+            cont.innerHTML = "<p>Cargando reportes...</p>";
             try {
                 const d = await fetchAPI({action:"get_reports", tienda: tiendaActual});
                 reportesCargados = d.data || [];
-                if(reportesCargados.length === 0) { cont.innerHTML = "<p>Vacío.</p>"; return; }
+                if(reportesCargados.length === 0) {
+                    cont.innerHTML = "<p>No hay reportes firmados en el último mes.</p>"; return;
+                }
                 let html = "";
                 reportesCargados.slice().reverse().forEach(rep => {
-                    html += `<div class="card"><b>${new Date(rep.fecha).toLocaleString()}</b><div class="hist-btn-group"><button style="background:var(--accent);" onclick="reGenerarPDF('${rep.id}')">📄 PDF</button><button style="background:var(--red);" onclick="borrarReporte('${rep.id}')">🗑️</button></div></div>`;
+                    html += `<div class="card" style="display:flex; flex-direction:column; gap:8px;">
+                        <b>Reporte: ${new Date(rep.fecha).toLocaleString()}</b>
+                        <div class="hist-btn-group">
+                            <button style="background:var(--accent);" onclick="reGenerarPDF('${rep.id}')">📄 Descargar PDF</button>
+                            <button style="background:var(--red);" onclick="borrarReporte('${rep.id}')">🗑️ Borrar</button>
+                        </div>
+                    </div>`;
                 });
                 cont.innerHTML = html;
             } catch(e) { cont.innerHTML = `<p>${e.message}</p>`; }
         }
 
-        async function borrarReporte(id) { if(confirm("¿Borrar?")) { await fetchAPI({action:"delete_report", id_reporte: id}); abrirHistorial(); } }
+        async function borrarReporte(id) {
+            if(!confirm("¿Seguro que deseas eliminar este reporte permanentemente?")) return;
+            await fetchAPI({action:"delete_report", id_reporte: id});
+            alert("Reporte eliminado.");
+            abrirHistorial(); 
+        }
 
         async function abrirFirmas() {
             irA('scr-firmas');
             document.getElementById('f-suc').innerText = datosLogin.clave || "---"; 
             document.getElementById('f-num').innerText = datosLogin.tienda || "---";
+            document.getElementById('notif-final').style.display = 'none'; 
+            document.getElementById('btn-pdf').style.display = 'none'; 
+            
             try {
                 const d = await fetchAPI({action:"get_store_users", tienda: tiendaActual});
-                const cont = document.getElementById('lista-firmas'); cont.innerHTML = ""; 
+                const cont = document.getElementById('lista-firmas');
+                cont.innerHTML = ""; 
+
+                if(d.users.length === 0) { cont.innerHTML = "<p>No hay empleados en esta tienda.</p>"; return; }
+
                 let todasFirmadas = true;
+
                 d.users.forEach(u => {
                     const div = document.createElement('div'); div.className = "firma-box";
+                    let tituloPuesto = u.puesto === "RSC" ? "Representante (RSC)" : u.puesto;
+                    
                     if(firmasCapturadas[u.id]) {
-                        div.innerHTML = `<strong>${u.nombre}</strong><br><img src="${firmasCapturadas[u.id].img}" style="width:200px;"><br><button class="btn-adj" onclick="borrarFirmaIndividual('${u.id}')">Re-firmar</button>`;
+                        div.innerHTML = `
+                            <strong>${u.nombre}</strong> <br><small>${tituloPuesto}</small><br>
+                            <img src="${firmasCapturadas[u.id].img}" style="width:200px; height:auto; border-bottom:1px solid #ccc; margin-top:10px;"><br>
+                            <div style="display:flex; align-items:center; gap: 10px; margin-top: 10px;">
+                                <span style="color:var(--green); font-weight:bold; font-size:12px;">✔️ Firmado</span>
+                                <button class="btn-adj" style="font-size:10px; padding: 5px;" onclick="borrarFirmaIndividual('${u.id}')">Volver a firmar</button>
+                            </div>
+                        `;
                     } else {
                         todasFirmadas = false; 
-                        div.innerHTML = `<strong>${u.nombre}</strong><br><label><input type="checkbox" id="chk-perdida-${u.id}"> Asume perdida</label><canvas id="canvas-${u.id}" class="canvas-firma" width="300" height="100"></canvas><br><button class="btn" onclick="guardarFirmaLocal('${u.id}', '${u.nombre}', '${u.puesto}')">Confirmar</button>`;
+                        div.innerHTML = `
+                            <strong>${u.nombre}</strong> <br><small>${tituloPuesto}</small><br>
+                            <label style="font-size:12px; font-weight:bold; color:var(--red); display:block; margin: 8px 0;">
+                                <input type="checkbox" id="chk-perdida-${u.id}"> Le corresponde toda la perdida
+                            </label>
+                            <canvas id="canvas-${u.id}" class="canvas-firma" width="300" height="100"></canvas>
+                            <div style="display:flex; gap:5px; margin-top:5px;">
+                                <button class="btn-adj" onclick="limpiarFirma('${u.id}')">Limpiar</button>
+                                <button class="btn" style="padding:8px; font-size:12px;" onclick="guardarFirmaLocal('${u.id}', '${u.nombre}', '${tituloPuesto}')">Confirmar Firma</button>
+                            </div>
+                        `;
                     }
-                    cont.appendChild(div); if(!firmasCapturadas[u.id]) initCanvas(`canvas-${u.id}`);
+                    cont.appendChild(div); 
+                    if(!firmasCapturadas[u.id]) initCanvas(`canvas-${u.id}`);
                 });
-                if(todasFirmadas && d.users.length > 0) { document.getElementById('btn-pdf').style.display = 'block'; }
+
+                if(todasFirmadas && d.users.length > 0) {
+                    const btn = document.getElementById('btn-pdf');
+                    btn.style.display = 'block';
+                    btn.innerText = "GENERAR PDF Y FINALIZAR";
+                    btn.disabled = false;
+                    btn.style.background = "var(--main-color)";
+                }
             } catch(e) { alert(e.message); }
         }
 
-        window.borrarFirmaIndividual = function(id) { delete firmasCapturadas[id]; abrirFirmas(); }
+        window.borrarFirmaIndividual = function(id) {
+            delete firmasCapturadas[id];
+            abrirFirmas(); 
+        }
+
         function initCanvas(id) {
-            const canvas = document.getElementById(id); const ctx = canvas.getContext("2d"); let drawing = false; ctx.lineWidth = 2;
-            const start = () => { drawing = true; ctx.beginPath(); };
-            const move = (e) => { if (!drawing) return; const rect = canvas.getBoundingClientRect(); const cX = e.touches ? e.touches[0].clientX : e.clientX; const cY = e.touches ? e.touches[0].clientY : e.clientY; ctx.lineTo(cX - rect.left, cY - rect.top); ctx.stroke(); };
+            const canvas = document.getElementById(id); const ctx = canvas.getContext("2d"); let drawing = false; ctx.lineWidth = 2; ctx.strokeStyle = "#000";
+            const start = (e) => { drawing = true; ctx.beginPath(); };
+            const move = (e) => { if (!drawing) return; const rect = canvas.getBoundingClientRect(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; ctx.lineTo(clientX - rect.left, clientY - rect.top); ctx.stroke(); };
             const stop = () => drawing = false;
             canvas.addEventListener("mousedown", start); canvas.addEventListener("mousemove", move); window.addEventListener("mouseup", stop);
             canvas.addEventListener("touchstart", start); canvas.addEventListener("touchmove", (e) => { e.preventDefault(); move(e); }, {passive: false}); canvas.addEventListener("touchend", stop);
         }
-        function guardarFirmaLocal(id, nombre, puesto) { firmasCapturadas[id] = { nombre, puesto, asumePerdida: document.getElementById(`chk-perdida-${id}`).checked, img: document.getElementById(`canvas-${id}`).toDataURL("image/png") }; abrirFirmas(); }
 
-        function debounceSearch(val, tipo) { clearTimeout(searchTimeout); if(val.length < 3 && val.length > 0) return; searchTimeout = setTimeout(() => { if(tipo === 'busc') buscarStock(document.getElementById('q-busc').value); if(tipo === 'gest') buscarGestion(); if(tipo === 'alias') buscarParaAlias(val); }, 600); }
+        function limpiarFirma(id) { document.getElementById(`canvas-${id}`).getContext("2d").clearRect(0, 0, 300, 100); }
+        
+        function guardarFirmaLocal(id, nombre, puesto) {
+            let asumePerdida = document.getElementById(`chk-perdida-${id}`).checked;
+            firmasCapturadas[id] = { nombre, puesto, asumePerdida, img: document.getElementById(`canvas-${id}`).toDataURL("image/png") };
+            alert("Firma confirmada para: " + nombre); 
+            abrirFirmas(); 
+        }
+
+        function debounceSearch(val, tipo) {
+            clearTimeout(searchTimeout);
+            if(val.length < 3 && val.length > 0) return;
+            searchTimeout = setTimeout(() => {
+                if(tipo === 'busc') buscarStock(document.getElementById('q-busc').value);
+                if(tipo === 'gest') buscarGestion();
+                if(tipo === 'alias') buscarParaAlias(val);
+            }, 600);
+        }
 
         document.getElementById('f-in').onchange = e => {
-            const archivo = e.target.files[0]; if(!archivo) return;
-            const borrarFisico = confirm("¿REINICIAR CONTADOR A 0?");
+            const archivo = e.target.files[0];
+            if(!archivo) return;
+            const borrarFisico = confirm("¿Deseas REINICIAR EL CONTADOR A 0?\n\nAceptar = Borrar tu conteo físico actual.\nCancelar = Mantener los escaneos que ya hiciste y solo actualizar sistema.");
+            
             document.getElementById('loader-excel').style.display = 'block';
+
             const fr = new FileReader();
             fr.onload = async ev => {
                 try {
-                    const wb = XLSX.read(new Uint8Array(ev.target.result), {type:'array'}); 
+                    const dataUint = new Uint8Array(ev.target.result);
+                    const wb = XLSX.read(dataUint, {type:'array'}); 
                     const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]); 
                     const items = data.map(r => ({ upc: String(r.UPC||r.Codigo||""), nombre: r.Nombre||r.Item||"", precio: r.Precio||0, inventario: r.Sistema||r.Inventario||0, plataforma: r.Plataforma||"", categoria: r.Categoria||"" }));
-                    await fetchAPI({ action:"upload_inventory", items, tienda: tiendaActual, reset_fisico: borrarFisico }); 
-                    document.getElementById('loader-excel').style.display = 'none'; alert("Carga exitosa.");
-                } catch(err) { document.getElementById('loader-excel').style.display = 'none'; alert("Error: " + err.message); }
+                    
+                    await fetchAPI({ action:"upload_inventory", items: items, tienda: tiendaActual, reset_fisico: borrarFisico }); 
+                    
+                    document.getElementById('loader-excel').style.display = 'none';
+                    alert("Carga de Excel masiva completada con éxito.");
+                    document.getElementById('f-in').value = ""; 
+                } catch(err) { 
+                    document.getElementById('loader-excel').style.display = 'none';
+                    alert("Error procesando Excel: " + err.message); 
+                }
             }; 
-            fr.readAsArrayBuffer(archivo);
+            
+            setTimeout(() => { fr.readAsArrayBuffer(archivo); }, 100);
         };
 
+        // ====== GENERADOR DE PDF NATIVO ======
         function procesarYDescargarPDF(dataItems, dataFirmas, fechaStr, infoTienda, esHistorial = false) {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF('p', 'pt', 'letter');
-            doc.setFontSize(16); doc.text("CARÁTULA DE INVENTARIO - GAMEPLANET", 40, 40);
-            doc.setFontSize(10); doc.text(`Tienda: ${infoTienda.nombre_tienda || '---'} | ID: ${infoTienda.tienda || '---'}`, 40, 60);
+            
+            doc.setFontSize(16);
+            doc.text("CARÁTULA DE INVENTARIO - GAMEPLANET", 40, 40);
+            
+            doc.setFontSize(10);
+            doc.text(`Nombre de la tienda: ${infoTienda.nombre_tienda || '---'}`, 40, 60);
+            doc.text(`ID Tienda: ${infoTienda.tienda || '---'} | Clave: ${infoTienda.clave || '---'}`, 40, 75);
+            
             const distJefe = datosLogin.rol === "Distrital" ? datosLogin.nombre : (datosLogin.nombre_distrital || "NA");
-            doc.text(`Fecha: ${fechaStr} | Jefe: ${distJefe}`, 40, 75);
+            doc.text(`Fecha de Cierre: ${fechaStr}`, 400, 60);
+            doc.text(`Distrito: ${infoTienda.distrito || '---'} / Jefe: ${distJefe}`, 400, 75);
 
-            let body = []; let totalPerdidaMoney = 0; let tieneDiferencias = false;
+            let body = [];
+            let totalPerdidaMoney = 0;
+            let tieneDiferencias = false;
+
             dataItems.forEach(it => {
                 const cat = String(it.categoria).toLowerCase();
                 const plat = String(it.plataforma).toLowerCase();
                 if (cat.includes("planes") && (cat.includes("telefon") || cat.includes("telefonía"))) return;
                 if (plat.includes("planes") && (plat.includes("telefon") || plat.includes("telefonía"))) return;
 
-                const sist = parseInt(it.sistema) || 0; const fisB = parseInt(it.fisico) || 0; const def = parseInt(it.defectos) || 0;
-                const totalFis = fisB + def; const diff = totalFis - sist;
+                const sist = parseInt(it.sistema) || 0;
+                const fisBueno = parseInt(it.fisico) || 0;
+                const def = parseInt(it.defectos) || 0;
+                
+                const totalFis = fisBueno + def;
+                const diff = totalFis - sist;
+
                 if (diff !== 0 || def > 0) {
                     tieneDiferencias = true;
                     if (diff !== 0) {
                         if (diff < 0) totalPerdidaMoney += (Math.abs(diff) * it.precio);
-                        body.push([it.upc, it.nombre.substring(0,35), it.plataforma || "---", it.categoria || "---", Math.abs(diff), diff < 0 ? "Pérdida" : "Sobrante"]);
+                        let obs = diff < 0 ? "Pérdida" : "Sobrante";
+                        body.push([it.upc, it.nombre.substring(0,35), it.plataforma || "---", it.categoria || "---", Math.abs(diff), obs]);
                     }
-                    if (def > 0) { body.push([`-> ${it.upc}`, `-> ${it.nombre.substring(0,33)}`, it.plataforma || "---", it.categoria || "---", def, "Defecto"]); }
+                    if (def > 0) {
+                        body.push([`-> ${it.upc}`, `-> ${it.nombre.substring(0,33)}`, it.plataforma || "---", it.categoria || "---", def, "Defecto"]);
+                    }
                 }
             });
 
+            if(!tieneDiferencias) {
+                body.push([{content: 'Inventario Perfecto. Sin diferencias detectadas.', colSpan: 6, styles: {halign: 'center'}}]);
+            }
+
             doc.autoTable({
-                startY: 90, head: [['UPC', 'PRODUCTO', 'PLATAFORMA', 'CATEGORÍA', 'CANT', 'OBSERVACIONES']], body: body, theme: 'grid',
-                headStyles: { fillColor: [44, 62, 80] }, styles: { fontSize: 8 },
-                didParseCell: (d) => { if(d.section==='body' && (d.cell.raw==='Pérdida'||d.cell.raw==='Defecto')) d.cell.styles.textColor=[231,76,60]; }
+                startY: 90,
+                head: [['UPC', 'PRODUCTO', 'PLATAFORMA', 'CATEGORÍA', 'CANT', 'OBSERVACIONES']],
+                body: body,
+                theme: 'grid',
+                headStyles: { fillColor: [44, 62, 80], textColor: [255,255,255] },
+                styles: { fontSize: 8, cellPadding: 4 },
+                columnStyles: {
+                    4: { halign: 'center', fontStyle: 'bold' }
+                },
+                didParseCell: function(data) {
+                    if (data.section === 'body' && data.column.index === 5) {
+                        if (data.cell.raw === 'Sobrante') data.cell.styles.textColor = [243, 156, 18];
+                        if (data.cell.raw === 'Pérdida' || data.cell.raw === 'Defecto') data.cell.styles.textColor = [231, 76, 60];
+                        if (data.cell.raw === 'Defecto') data.cell.styles.fontStyle = 'bold';
+                    }
+                }
             });
 
-            let finalY = doc.lastAutoTable.finalY + 30; if (finalY > 650) { doc.addPage(); finalY = 40; } 
-            doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.text(`PÉRDIDA FALTANTE: $${totalPerdidaMoney.toLocaleString()}`, 40, finalY);
+            let finalY = doc.lastAutoTable.finalY + 30;
+            if (finalY > 650) { doc.addPage(); finalY = 40; }
 
-            finalY += 60; let sigX = 40; const keys = Object.keys(dataFirmas);
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text(`DEFECTOS: $0.00`, 40, finalY);
+            doc.text(`PÉRDIDA/FALTANTE: $${totalPerdidaMoney.toLocaleString('en-US', {minimumFractionDigits: 2})}`, 40, finalY + 20);
+            doc.text(`SOBRANTE: $0.00`, 40, finalY + 40);
+
+            finalY += 80;
+            let sigX = 40;
+            let firmY = finalY;
+            const keys = Object.keys(dataFirmas);
+            
             for (let i = 0; i < keys.length; i++) {
-                if (sigX > 400) { sigX = 40; finalY += 120; } if (finalY > 700) { doc.addPage(); finalY = 40; sigX = 40; }
-                let f = dataFirmas[keys[i]]; try { doc.addImage(f.img, 'PNG', sigX, finalY, 150, 50); } catch(e) {}
-                doc.line(sigX, finalY + 50, sigX + 150, finalY + 50);
-                doc.setFontSize(9); doc.text(f.nombre, sigX, finalY + 65);
+                if (sigX > 400) { sigX = 40; firmY += 120; }
+                if (firmY > 700) { doc.addPage(); firmY = 40; sigX = 40; }
+                
+                let f = dataFirmas[keys[i]];
+                try { doc.addImage(f.img, 'PNG', sigX, firmY, 150, 50); } catch(e) {}
+                
+                doc.setDrawColor(0);
+                doc.setLineWidth(1);
+                doc.line(sigX, firmY + 50, sigX + 150, firmY + 50);
+                
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "bold");
+                doc.text(f.nombre, sigX, firmY + 65);
+                
+                doc.setFontSize(8);
+                doc.setFont("helvetica", "normal");
+                doc.text(f.puesto, sigX, firmY + 75);
+                
+                if (f.asumePerdida) {
+                    doc.setTextColor(255, 0, 0);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("(LE CORRESPONDE PÉRDIDA)", sigX, firmY + 85);
+                    doc.setTextColor(0, 0, 0);
+                }
                 sigX += 250;
             }
-            doc.save(`Caratula_${infoTienda.tienda}_${fechaStr.replace(/\//g,'-')}.pdf`);
-            if(!esHistorial) { confetti(); fetchAPI({ action: "save_inventory_report", tienda: datosLogin.tienda, status: "PDF", firmas: dataFirmas, items: dataItems, distrito: datosLogin.distrito }).catch(()=>{}); }
+
+            doc.save(`Caratula_${infoTienda.clave}_${fechaStr.replace(/\//g, '-')}.pdf`);
+
+            if(!esHistorial) {
+                const notif = document.getElementById('notif-final');
+                notif.innerHTML = `Carátula procesada correctamente el ${fechaStr}`;
+                notif.style.display = "block"; document.getElementById('btn-pdf').style.display = "none";
+                confetti(); 
+
+                fetchAPI({
+                    action: "save_inventory_report", tienda: datosLogin.tienda, clave: datosLogin.clave, nombre_tienda: datosLogin.nombre_tienda, 
+                    status: "PDF Generado", firmas: dataFirmas, items: dataItems, distrito: datosLogin.distrito
+                }).catch(()=>{});
+            }
         }
 
         async function generarCaratulaPDF() {
-            const btn = document.getElementById('btn-pdf'); btn.innerText = "PROCESANDO..."; btn.disabled = true;
+            const btn = document.getElementById('btn-pdf');
+            btn.innerText = "PROCESANDO... ESPERA"; btn.style.background = "var(--gray)"; btn.disabled = true;
+
             try {
                 const d = await fetchAPI({action:"search_stock", query:"", filtro:"todos", tienda: tiendaActual, is_report: true});
-                procesarYDescargarPDF(d.data, firmasCapturadas, new Date().toLocaleDateString(), datosLogin, false);
-            } catch (e) { alert(e.message); btn.disabled = false; }
+                const fechaStr = new Date().toLocaleDateString();
+                procesarYDescargarPDF(d.data, firmasCapturadas, fechaStr, datosLogin, false);
+            } catch (error) {
+                alert(error.message);
+                btn.innerText = "GENERAR PDF Y FINALIZAR"; btn.style.background = "var(--main-color)"; btn.disabled = false;
+            }
         }
 
         function reGenerarPDF(idReporte) {
-            const rep = reportesCargados.find(r => r.id === idReporte); if(!rep) return;
-            procesarYDescargarPDF(JSON.parse(rep.items), JSON.parse(rep.firmas), new Date(rep.fecha).toLocaleDateString(), rep, true);
+            const rep = reportesCargados.find(r => r.id === idReporte);
+            if(!rep) return alert("Reporte no encontrado.");
+            const fechaStr = new Date(rep.fecha).toLocaleDateString();
+            const items = JSON.parse(rep.items || "[]");
+            const firmas = JSON.parse(rep.firmas || "{}");
+            procesarYDescargarPDF(items, firmas, fechaStr, rep, true);
         }
 
-        // ====== LECTOR DE CÓDIGO CON ZXING (ALTA PRECISIÓN) ======
+        // ====== LECTOR ZXING RECUPERADO Y OPTIMIZADO ======
         function iniciarLector(){ 
             camState = true; 
             document.getElementById('btn-cam-toggle').innerText = "Apagar Cámara"; 
@@ -478,46 +686,84 @@
         }
         function cerrarModalAlias(){ document.getElementById('modal-alias').style.display='none'; iniciarLector(); }
 
+        // --- SE RESTAURAN TODOS LOS DETALLES VISUALES (PLATAFORMA, PRECIO, UPC) ---
         async function procesarScan(upc){
-            if(!upc) return; document.getElementById('bip').play().catch(()=>{}); 
-            let upcS = String(upc).trim(); const esU = document.getElementById('chk-u').checked;
-            let clean = (upcS.startsWith('0') && (upcS.length === 12 || upcS.length === 13)) ? upcS.substring(1) : upcS;
-            let final = esU ? (clean.toUpperCase().startsWith('U') ? clean : 'U' + clean) : clean;
+            if(!upc) return;
+            document.getElementById('bip').play().catch(()=>{}); 
+            let upcString = String(upc).trim(); const esUsadoChecked = document.getElementById('chk-u').checked;
+            let cleanUPC = (upcString.startsWith('0') && (upcString.length === 12 || upcString.length === 13)) ? upcString.substring(1) : upcString;
+            let finalUPC = esUsadoChecked ? (cleanUPC.toUpperCase().startsWith('U') ? cleanUPC : 'U' + cleanUPC) : cleanUPC;
+            const cant = parseInt(document.getElementById('multi-piezas').value) || 1;
+            
             try {
-                const d = await fetchAPI({action:"scan", upc:final, tienda: tiendaActual, cantidad: parseInt(document.getElementById('multi-piezas').value)||1});
+                const d = await fetchAPI({action:"scan", upc:finalUPC, tienda: tiendaActual, cantidad: cant});
                 if(d.success){
-                    const color = getStatusColor(d.item.fisico, d.item.sistema, 0); document.getElementById('multi-piezas').value = 1;
-                    document.getElementById('scan-res').innerHTML = `<div class="card" style="border-left:10px solid ${color}"><b>${d.item.nombre}</b><br>Fis: ${d.item.fisico} / Sist: ${d.item.sistema}</div>`;
-                    historial.unshift({nombre: d.item.nombre, cant: 1, color}); if(historial.length > 5) historial.pop(); dibujarHistorial();
+                    const color = getStatusColor(d.item.fisico, d.item.sistema, 0);
+                    document.getElementById('multi-piezas').value = 1;
+                    
+                    // AQUI REGRESA LA PLATAFORMA Y PRECIO AL ESCANEAR
+                    document.getElementById('scan-res').innerHTML = `<div class="card" style="border-left:10px solid ${color}"><b>${d.item.nombre}</b><br><span class="tag">${d.item.plataforma}</span> <span style="color:var(--green); font-weight:bold;">$${d.item.precio}</span><br>Fis: ${d.item.fisico} / Sist: ${d.item.sistema}</div>`;
+                    
+                    historial.unshift({nombre: d.item.nombre, cant: cant, color: color});
+                    if(historial.length > 5) historial.pop(); dibujarHistorial();
                     setTimeout(()=> { escaneando = false; if(modoScan==='rapido') document.getElementById('scan-res').innerHTML=""; }, 1500); 
-                } else { codeReader.reset(); upcPendiente = final; document.getElementById('txt-upc-err').innerText = final; document.getElementById('modal-alias').style.display = 'block'; escaneando = false; }
+                } else { codeReader.reset(); upcPendiente = finalUPC; document.getElementById('txt-upc-err').innerText = finalUPC; document.getElementById('modal-alias').style.display = 'block'; escaneando = false; }
             } catch(e) { alert(e.message); escaneando = false; }
         }
 
         const getStatusColor = (f, s, d) => (d > 0 ? 'var(--yellow)' : (f == s ? 'var(--green)' : (f > s ? 'var(--orange)' : 'var(--red)')));
-        function dibujarHistorial(){ document.getElementById('scan-hist').innerHTML = historial.map(h => `<div class="hist-item" style="border-left:4px solid ${h.color}"><span>${h.nombre}</span></div>`).join(''); }
+        function dibujarHistorial(){ document.getElementById('scan-hist').innerHTML = historial.map(h => `<div class="hist-item" style="border-left:4px solid ${h.color}"><span>${h.nombre}</span> <b>+${h.cant}</b></div>`).join(''); }
 
         async function buscarStock(q){ 
             if(q.length < 2 && document.getElementById('filtro-busc').value !== 'todos') return;
-            const cont = document.getElementById('res-busc'); cont.innerHTML = "<p>Buscando...</p>";
+            const cont = document.getElementById('res-busc');
+            const filtroSeleccionado = document.getElementById('filtro-busc').value;
+            cont.innerHTML = "<p style='text-align:center;'>Buscando...</p>";
             try{ 
-                const d = await fetchAPI({action:"search_stock", query:q, filtro: document.getElementById('filtro-busc').value, tienda: tiendaActual}); 
-                cont.innerHTML = d.data.map(it => `<div class="card"><b>${it.nombre}</b><br><small>Sist: ${it.sistema} | Fis: ${it.fisico}</small></div>`).join(''); 
+                const d = await fetchAPI({action:"search_stock", query:q, filtro: filtroSeleccionado, tienda: tiendaActual}); 
+                
+                // AQUI REGRESA LA PLATAFORMA, PRECIO Y UPC AL BUSCADOR
+                cont.innerHTML = d.data.map(it => `<div class="card"><b>${it.nombre}</b><br><span class="tag">${it.plataforma}</span> <span style="color:var(--green); font-weight:bold;">$${it.precio}</span><br><small>Sist: ${it.sistema} | Fis: ${it.fisico} | UPC: ${it.upc}</small></div>`).join(''); 
+                
+                if(d.data.length === 0) cont.innerHTML = "<p>Sin resultados.</p>";
             }catch(e){} 
         }
         
         async function buscarGestion(){ 
             try { 
                 const d = await fetchAPI({action:"search_stock", query:document.getElementById('q-gest').value, filtro:document.getElementById('filtro-gest').value, tienda: tiendaActual}); 
+                
+                // AQUI REGRESAN TODOS LOS DETALLES A LA PESTAÑA DE GESTION
                 document.getElementById('res-gest').innerHTML = d.data.map(it => { 
-                    const def = parseInt(it.defectos) || 0; const totalFis = parseInt(it.fisico) + def; const color = getStatusColor(totalFis, it.sistema, def); 
-                    return `<div class="card" style="border-left:8px solid ${color}"><b>${it.nombre}</b><br><span class="tag">${it.plataforma}</span><br><small>Sist: ${it.sistema} | Fis: ${totalFis}</small><div class="grid-adj"><button class="btn-adj" onclick="ajustar('${it.upc}', -1, 'fisico')">-1</button><button class="btn-adj" onclick="ajustar('${it.upc}', 1, 'fisico')">+1</button><button class="btn-adj" style="background:var(--red); color:white;" onclick="ajustar('${it.upc}', 1, 'defecto')">⚠️ +1 Defecto</button></div></div>`; 
+                    const def = parseInt(it.defectos) || 0;
+                    const fisBueno = parseInt(it.fisico) || 0;
+                    const totalFis = fisBueno + def;
+                    const color = getStatusColor(totalFis, it.sistema, def); 
+                    return `<div class="card" style="border-left:8px solid ${color}">
+                        <b onclick="editarTotal('${it.upc}', '${it.nombre}')" style="color:var(--accent); text-decoration:underline;">${it.nombre}</b><br>
+                        <div style="margin: 5px 0;">
+                            <span class="tag" style="background:var(--main-color); color:white;">${it.plataforma}</span> 
+                            <span class="tag">UPC: ${it.upc}</span> 
+                            <span style="font-weight:bold; color:var(--green)">$${it.precio}</span>
+                        </div>
+                        <small>Sist: ${it.sistema} | Fis Total: ${totalFis} (Defectos: ${def})</small>
+                        <div class="grid-adj">
+                            <button class="btn-adj" onclick="ajustar('${it.upc}', -1, 'fisico')">-1 Físico</button>
+                            <button class="btn-adj" onclick="ajustar('${it.upc}', 1, 'fisico')">+1 Físico</button>
+                            <div class="btn-def-box" style="grid-column: span 2; display:grid; grid-template-columns: 1fr 2fr; gap:8px;">
+                                <button class="btn-adj" style="background:var(--gray); color:white;" onclick="ajustar('${it.upc}', -1, 'defecto')">-1 Defecto</button>
+                                <button class="btn-adj" style="background:var(--red); color:white;" onclick="ajustar('${it.upc}', 1, 'defecto')">⚠️ +1 Defecto</button>
+                            </div>
+                        </div>
+                    </div>`; 
                 }).join(''); 
             } catch(e){} 
         }
 
-        async function ajustar(upc, valor, tipo){ try{ await fetchAPI({action:"update_stock", upc, valor, tipo, tienda: tiendaActual}); buscarGestion(); }catch(e){alert(e.message);} }
+        async function ajustar(upc, valor, tipo){ try{ await fetchAPI({action:"update_stock", upc:upc, valor:valor, tipo:tipo, tienda: tiendaActual}); buscarGestion(); }catch(e){alert(e.message);} }
+        async function editarTotal(upc, nombre){ const n = prompt("Editar Inventario FÍSICO total:\n" + nombre); if(n !== null && n !== "") { try{ await fetchAPI({action:"update_stock", upc:upc, valor: parseInt(n), tipo:"set_total", tienda: tiendaActual}); buscarGestion(); }catch(e){alert(e.message);} } }
 
+        // ====== RESUMEN VISUAL COMPLETO RESTAURADO ======
         async function generarFinal(){
             irA('scr-final'); document.getElementById('final-titulo').innerText = "Analizando...";
             try {
@@ -529,26 +775,61 @@
                     const esPlanTel = (cat.includes("planes") && (cat.includes("telefon") || cat.includes("telefonía"))) || (plat.includes("planes") && (plat.includes("telefon") || plat.includes("telefonía")));
                     return !esPlanTel; 
                 });
-
+                
                 let faltantes = [], sobrantes = [], defectuosos = [], totalPerdidaMoney = 0;
+                
                 dataLimpia.forEach(it => { 
-                    const def = parseInt(it.defectos) || 0; const totalFis = parseInt(it.fisico) + def; const diff = totalFis - it.sistema; 
-                    if(diff < 0) { faltantes.push({...it, diff: Math.abs(diff)}); totalPerdidaMoney += (Math.abs(diff) * it.precio); } 
-                    else if(diff > 0) { sobrantes.push({...it, diff: diff}); }
-                    if(def > 0) defectuosos.push({...it, def: def});
+                    const def = parseInt(it.defectos) || 0;
+                    const totalFis = parseInt(it.fisico) + def;
+                    const diff = totalFis - it.sistema; 
+                    
+                    if(diff < 0) { 
+                        faltantes.push({...it, diff: Math.abs(diff)}); 
+                        totalPerdidaMoney += (Math.abs(diff) * it.precio); 
+                    } else if(diff > 0) { 
+                        sobrantes.push({...it, diff: diff}); 
+                    }
+                    
+                    if(def > 0) {
+                        defectuosos.push({...it, def: def});
+                    }
                 });
-                let titulo = "Faltantes", colorFondo = "var(--red)", audioKey = "mario";
-                if(faltantes.length === 0 && sobrantes.length === 0) { titulo = "¡PERFECTO!"; colorFondo = "var(--green)"; audioKey = "kirby"; confetti(); }
-                document.getElementById('final-titulo').innerText = titulo; document.getElementById('final-titulo').style.color = colorFondo; reproducirResultado(audioKey);
-                let hDetalle = "<h4>Detalle:</h4>"; 
-                faltantes.forEach(f => { hDetalle += `<div class="item-resumen"><b>${f.diff} pzas</b> - ${f.nombre}<br><small>Perdida: $${f.diff * f.precio}</small></div>`; }); 
-                document.getElementById('final-detalles').innerHTML = hDetalle; 
-                document.getElementById('final-totales').style.background = colorFondo; document.getElementById('final-totales').style.color = "white"; 
-                document.getElementById('final-totales').innerHTML = `Pérdida Total: $${totalPerdidaMoney.toLocaleString()}`;
+                
+                let titulo = "", msg = "", gif = "", colorFondo = "", audioKey = "";
+                if(faltantes.length === 0 && sobrantes.length === 0) { 
+                    titulo = "¡EXCELENTE!"; msg = defectuosos.length > 0 ? "Inventario cuadrado (Con defectos)." : "Inventario perfecto."; gif = "https://cdn.wikirby.com/a/aa/KSSU_Kirby_Dance.gif"; colorFondo = "var(--green)"; audioKey = "kirby"; confetti(); 
+                } else if(faltantes.length > 0 && sobrantes.length > 0) { 
+                    titulo = "Atención"; msg = "Hay tanto faltantes como sobrantes."; gif = "https://i.pinimg.com/originals/0c/3a/14/0c3a146cf1cb9d6bcb8cd1df8b657b7a.gif"; colorFondo = "var(--dark)"; audioKey = "boo"; 
+                } else if(faltantes.length > 0) { 
+                    titulo = "Faltantes"; msg = "Se detectaron pérdidas."; gif = "https://i.pinimg.com/originals/4c/04/49/4c04499d9b89e8f6b8de4c8c8b12a10f.gif"; colorFondo = "var(--red)"; audioKey = "mario"; 
+                } else { 
+                    titulo = "Sobrantes"; msg = "Hay más piezas de las esperadas."; gif = "https://media.tenor.com/C8oYXcxgFB4AAAAM/riiiz.gif"; colorFondo = "var(--orange)"; audioKey = "wario"; 
+                }
+
+                document.getElementById('final-titulo').innerText = titulo; document.getElementById('final-titulo').style.color = colorFondo; document.getElementById('final-msg').innerText = msg; document.getElementById('final-gif-container').innerHTML = `<img src="${gif}" class="resumen-img">`; reproducirResultado(audioKey);
+                
+                // AQUI REGRESAN LAS LISTAS DE FALTANTES, SOBRANTES Y DEFECTOS CON SUS UPC
+                let htmlDetalle = "<h4>Detalle:</h4>"; 
+                faltantes.forEach(f => { htmlDetalle += `<div class="item-resumen"><b>${f.diff} pzas</b> - ${f.nombre}<br><small>UPC: ${f.upc} | <b>Total: $${f.diff * f.precio}</b></small></div>`; }); 
+                
+                if (sobrantes.length > 0) { 
+                    htmlDetalle += "<h4 style='margin-top:15px; color:var(--orange);'>Sobrantes:</h4>"; 
+                    sobrantes.forEach(s => { htmlDetalle += `<div class="item-resumen" style="border-left: 4px solid var(--orange);"><b>${s.diff} pzas</b> - ${s.nombre}<br><small>UPC: ${s.upc}</small></div>`; }); 
+                }
+                
+                if (defectuosos.length > 0) { 
+                    htmlDetalle += "<h4 style='margin-top:15px; color:var(--red);'>Defectos Detectados:</h4>"; 
+                    defectuosos.forEach(d => { htmlDetalle += `<div class="item-resumen" style="border-left: 4px solid var(--red);"><b>${d.def} pzas</b> - ${d.nombre}<br><small>UPC: ${d.upc}</small></div>`; }); 
+                }
+
+                document.getElementById('final-detalles').innerHTML = htmlDetalle; 
+                document.getElementById('final-totales').style.background = colorFondo; 
+                document.getElementById('final-totales').style.color = "white"; 
+                document.getElementById('final-totales').innerHTML = `Pérdida Total Faltante: $${totalPerdidaMoney.toLocaleString()}`;
             } catch(e) { alert(e.message); irA('scr-gest'); }
         }
 
-        async function buscarParaAlias(q){ if(q.length < 3) return; try{ const d = await fetchAPI({action:"search_stock", query:q, tienda: tiendaActual}); document.getElementById('res-alias').innerHTML = d.data.map(it => `<div class="card" onclick="ligarAlias('${it.upc}')"><b>${it.nombre}</b></div>`).join(''); }catch(e){} }
+        async function buscarParaAlias(q){ if(q.length < 3) return; try{ const d = await fetchAPI({action:"search_stock", query:q, tienda: tiendaActual}); document.getElementById('res-alias').innerHTML = d.data.map(it => `<div class="card" style="color:black;" onclick="ligarAlias('${it.upc}')"><b>${it.nombre}</b><br><span class="tag">${it.plataforma}</span> <small style="color:var(--orange)">UPC: ${it.upc}</small></div>`).join(''); }catch(e){} }
         async function ligarAlias(upcReal){ try{ await fetchAPI({action:"link_alias", nuevo_upc: upcPendiente, upc_real: upcReal}); document.getElementById('modal-alias').style.display = 'none'; iniciarLector(); procesarScan(upcPendiente); }catch(e){alert(e.message);} }
     </script>
 </body>

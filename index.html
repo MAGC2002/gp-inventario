@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Inventario Pro Beta v1.9.9.2 Elite</title>
+    <title>Inventario Pro Beta v1.9.9.7</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     
     <style>
         :root { --main-color: #2c3e50; --bg: #f4f7f6; --accent: #3498db; --green: #27ae60; --red: #e74c3c; --orange: #f39c12; --yellow: #ffc107; --dark: #2c3e50; --gray: #95a5a6; }
@@ -27,8 +28,12 @@
         #cam-box { display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:100; background:#000; }
         #v-container { position: relative; width: 100%; height: 30%; overflow: hidden; background:#000; }
         #v { width:100%; height:100%; object-fit:cover; }
-        .scanner-line { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: var(--red); box-shadow: 0 0 10px var(--red); animation: scanMove 1.5s linear infinite; z-index: 110; }
-        @keyframes scanMove { 0% { transform: translateY(10px); } 50% { transform: translateY(28vh); } 100% { transform: translateY(10px); } }
+        
+        /* CERO LAG: Nueva mira de francotirador estática, reemplaza la animación roja */
+        .scanner-target { position: absolute; top: 50%; left: 50%; width: 70%; height: 60%; transform: translate(-50%, -50%); border: 2px solid rgba(46, 204, 113, 0.4); box-sizing: border-box; z-index: 110; border-radius: 10px; }
+        .scanner-target::before, .scanner-target::after { content: ''; position: absolute; width: 40px; height: 40px; border-color: var(--green); border-style: solid; }
+        .scanner-target::before { top: -2px; left: -2px; border-width: 4px 0 0 4px; border-top-left-radius: 10px; }
+        .scanner-target::after { bottom: -2px; right: -2px; border-width: 0 4px 4px 0; border-bottom-right-radius: 10px; }
         
         #scan-info { position:absolute; bottom:0; width:100%; height:70%; background:white; padding:20px; border-top:5px solid var(--main-color); overflow-y:auto; box-sizing:border-box; border-radius: 20px 20px 0 0; }
         .hist-item { font-size: 12px; padding: 8px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
@@ -62,7 +67,7 @@
     <div id="scr-login" class="screen active">
         <div class="mascot-container" style="margin-top: 50px;">
             <img src="https://cdn-icons-png.flaticon.com/512/2043/2043231.png" class="mascot-img" alt="Mascota Beta">
-            <h2 style="color:var(--main-color); margin-top:10px;">Inventario Pro <small>v1.9.9.2 Elite</small></h2>
+            <h2 style="color:var(--main-color); margin-top:10px;">Inventario Pro <small>v1.9.9.7</small></h2>
         </div>
         <div class="card">
             <input type="text" id="l-u" placeholder="Usuario (ID)">
@@ -81,15 +86,12 @@
             <input type="text" id="r-u" placeholder="ID de Empleado">
             <input type="password" id="r-p" placeholder="Contraseña">
             <input type="text" id="r-n" placeholder="Nombre Completo">
-            
             <div id="campos-tienda">
                 <input type="number" id="r-t" placeholder="No. de Tienda">
                 <input type="text" id="r-c" placeholder="Código (Ej: ARAG)">
                 <input type="text" id="r-nt" placeholder="Nombre de la Tienda">
             </div>
-            
             <input type="text" id="r-d" placeholder="Zona/Distrito">
-            
             <button class="btn" onclick="registro()">REGISTRAR</button>
             <button onclick="irA('scr-login')" style="background:none; border:none; width:100%; margin-top:15px; color:#666;">Volver</button>
         </div>
@@ -127,7 +129,6 @@
             <button class="btn" style="background:var(--dark); margin-top:10px;" onclick="abrirHistorial()">📁 ARCHIVO REPORTES</button>
         </div>
         <input type="file" id="f-in" hidden accept=".xlsx,.xls,.csv">
-        
         <button class="btn" style="background:var(--red); margin-top:30px;" onclick="forzarActualizacion()">🔄 REFRESCAR</button>
         <button class="btn" style="background:#666; margin-top:10px;" onclick="location.reload()">Cerrar Sesión</button>
     </div>
@@ -189,7 +190,7 @@
     </div>
 
     <div id="cam-box">
-        <div id="v-container"><video id="v" muted playsinline></video><div class="scanner-line"></div></div>
+        <div id="v-container"><video id="v" muted playsinline></video><div class="scanner-target"></div></div>
         <div id="scan-info">
             <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
                 <button id="btn-cam-toggle" onclick="toggleCam()" style="background:var(--orange); color:white; border:none; padding:8px; border-radius:5px; font-weight:bold;">Apagar Cámara</button>
@@ -218,49 +219,9 @@
         <button class="btn" style="background:#444; margin-top:15px;" onclick="cerrarModalAlias()">CANCELAR</button>
     </div>
 
-    <div id="pdf-molde" style="display:none;">
-        <div style="width: 800px; max-width: 800px; background: white; padding: 40px; color: black; font-family: Arial, sans-serif; box-sizing: border-box;">
-            <div style="text-align:center; border-bottom: 3px solid #2c3e50; padding-bottom: 10px;">
-                <h2 style="margin:0; font-size:20px; color:#555;">CARÁTULA DE INVENTARIO</h2>
-            </div>
-            <div style="display:flex; justify-content: space-between; margin-top:25px; font-size:14px; line-height:1.6;">
-                <div>
-                    <p><b>Nombre de la tienda:</b> <span id="pdf-nom-tienda"></span></p>
-                    <p><b>ID Tienda:</b> <span id="pdf-id-tienda"></span></p>
-                    <p><b>Clave:</b> <span id="pdf-clave"></span></p>
-                </div>
-                <div style="text-align:right;">
-                    <p><b>Fecha de Cierre:</b> <span id="pdf-fecha"></span></p>
-                    <p><b>Distrito:</b> <span id="pdf-dist"></span></p>
-                </div>
-            </div>
-            <table style="width: 100%; border-collapse: collapse; margin-top: 25px; font-size:10px;">
-                <thead>
-                    <tr style="background:#2c3e50; color:white;">
-                        <th style="border: 1px solid #ddd; padding: 8px; text-align:left;">UPC</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; text-align:left;">PRODUCTO</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; text-align:left;">PLATAFORMA</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; text-align:left;">CATEGORÍA</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; text-align:center;">CANT</th>
-                        <th style="border: 1px solid #ddd; padding: 8px; text-align:left;">OBSERVACIONES</th>
-                    </tr>
-                </thead>
-                <tbody id="pdf-tabla-body"></tbody>
-            </table>
-            
-            <div style="margin-top: 30px; padding: 15px; border: 2px solid #ccc; background: #fafafa; font-size: 14px; font-weight: bold;">
-                <p style="margin:5px 0;">DEFECTOS: $0</p>
-                <p style="margin:5px 0;">PÉRDIDA/FALTANTE: $<span id="pdf-tot-per">0.00</span></p>
-                <p style="margin:5px 0;">SOBRANTE: $0</p>
-            </div>
-
-            <div style="margin-top:50px; display: grid; grid-template-columns: 1fr 1fr; gap: 40px;" id="pdf-firmas-grid"></div>
-        </div>
-    </div>
-
     <script>
-        // ¡SUPER IMPORTANTE! PEGA AQUÍ TU URL DE GOOGLE APPS SCRIPT
-        const API = "https://script.google.com/macros/s/AKfycbyPVvNFLh1sJXm6mHNxsxprx69vTrd4IT-gVBv3KPNtedEl5_AnsYQmTCb3643rBHq4Gg/exec"; 
+        // ¡RECUERDA PEGAR TU URL AQUÍ!
+        const API = "https://script.google.com/macros/s/AKfycbw0ZEO6F7BSZG7zJmEqBNWQTqpjqig7MF2sH0fCfWX6PeYCi-XQOJ1wyTWYS9en8Qbibg/exec"; 
         
         async function fetchAPI(payload) {
             if (!API || API === "TU_URL_DE_APPS_SCRIPT_AQUI" || API === "TU_URL_DE_GOOGLE_APPS_SCRIPT_AQUI") {
@@ -274,8 +235,7 @@
             } catch (error) { throw new Error("No hay conexión segura con el servidor. Revisa tu internet."); }
         }
         
-        const hints = new Map(); hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
-        const zxingReader = new ZXing.BrowserMultiFormatReader(hints);
+        const zxingReader = { reset: function(){} }; 
         
         let tiendaActual = "", escaneando = false, modoScan = "", upcPendiente = "", miRol = "", camState = true;
         let historial = [], datosLogin = {}, firmasCapturadas = {}, reportesCargados = [];
@@ -499,7 +459,6 @@
             abrirFirmas(); 
         }
 
-        // --- SISTEMA DEBOUCE PARA BÚSQUEDAS ---
         function debounceSearch(val, tipo) {
             clearTimeout(searchTimeout);
             if(val.length < 3 && val.length > 0) return;
@@ -528,7 +487,7 @@
                     await fetchAPI({ action:"upload_inventory", items: items, tienda: tiendaActual, reset_fisico: borrarFisico }); 
                     
                     document.getElementById('loader-excel').style.display = 'none';
-                    alert("Carga de Excel completada con éxito.");
+                    alert("Carga de Excel masiva completada con éxito.");
                     document.getElementById('f-in').value = ""; 
                 } catch(err) { 
                     document.getElementById('loader-excel').style.display = 'none';
@@ -540,30 +499,21 @@
         };
 
         function procesarYDescargarPDF(dataItems, dataFirmas, fechaStr, infoTienda, esHistorial = false) {
-            const element = document.getElementById('pdf-molde').cloneNode(true);
-            element.id = "pdf-render-target";
-            element.style.display = "block";
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'pt', 'letter');
             
-            element.style.position = "fixed";
-            element.style.top = "0";
-            element.style.left = "0";
-            element.style.width = "800px";
-            element.style.maxWidth = "800px";
-            element.style.zIndex = "-9999"; 
+            doc.setFontSize(16);
+            doc.text("CARÁTULA DE INVENTARIO", 40, 40);
             
-            document.body.appendChild(element); 
+            doc.setFontSize(10);
+            doc.text(`Nombre de la tienda: ${infoTienda.nombre_tienda || '---'}`, 40, 60);
+            doc.text(`ID Tienda: ${infoTienda.tienda || '---'} | Clave: ${infoTienda.clave || '---'}`, 40, 75);
+            
+            const distJefe = datosLogin.rol === "Distrital" ? datosLogin.nombre : (datosLogin.nombre_distrital || "NA");
+            doc.text(`Fecha de Cierre: ${fechaStr}`, 400, 60);
+            doc.text(`Distrito: ${infoTienda.distrito || '---'} / Jefe: ${distJefe}`, 400, 75);
 
-            element.querySelector('#pdf-nom-tienda').innerText = infoTienda.nombre_tienda || "---";
-            element.querySelector('#pdf-id-tienda').innerText = infoTienda.tienda || "---";
-            element.querySelector('#pdf-clave').innerText = infoTienda.clave || "---";
-            element.querySelector('#pdf-fecha').innerText = fechaStr;
-            
-            const distNombreJefe = datosLogin.rol === "Distrital" ? datosLogin.nombre : (datosLogin.nombre_distrital || "NA");
-            element.querySelector('#pdf-dist').innerText = (infoTienda.distrito || "---") + " / " + distNombreJefe;
-
-            const tbody = element.querySelector('#pdf-tabla-body');
-            tbody.innerHTML = "";
-            
+            let body = [];
             let totalPerdidaMoney = 0;
             let tieneDiferencias = false;
 
@@ -574,93 +524,98 @@
                 const sist = parseInt(it.sistema) || 0;
                 const fisBueno = parseInt(it.fisico) || 0;
                 const def = parseInt(it.defectos) || 0;
-                
                 const totalFis = fisBueno + def;
                 const diff = totalFis - sist;
 
-                if (diff !== 0 || def > 0) { 
+                if (diff !== 0 || def > 0) {
                     tieneDiferencias = true;
-
                     if (diff !== 0) {
                         if (diff < 0) totalPerdidaMoney += (Math.abs(diff) * it.precio);
                         let obs = diff < 0 ? "Pérdida" : "Sobrante";
-                        let valAbs = Math.abs(diff);
-                        let colorClass = diff < 0 ? "color:red; font-weight:bold;" : "color:inherit;";
-                        
-                        tbody.innerHTML += `<tr>
-                            <td style="border:1px solid #ddd; padding:8px;">${it.upc}</td>
-                            <td style="border:1px solid #ddd; padding:8px;">${it.nombre}</td>
-                            <td style="border:1px solid #ddd; padding:8px;">${it.plataforma || "---"}</td>
-                            <td style="border:1px solid #ddd; padding:8px;">${it.categoria || "---"}</td>
-                            <td style="border:1px solid #ddd; padding:8px; text-align:center; ${colorClass}">${valAbs}</td>
-                            <td style="border:1px solid #ddd; padding:8px;">${obs}</td>
-                        </tr>`;
+                        body.push([it.upc, it.nombre.substring(0,35), it.plataforma || "---", it.categoria || "---", Math.abs(diff), obs]);
                     }
-
                     if (def > 0) {
-                        let esFilaHija = (diff !== 0);
-                        tbody.innerHTML += `<tr>
-                            <td style="border:1px solid #ddd; padding:8px; color:${esFilaHija ? '#777' : '#000'};">${esFilaHija ? '↳ ' : ''}${it.upc}</td>
-                            <td style="border:1px solid #ddd; padding:8px; color:${esFilaHija ? '#777' : '#000'};">${esFilaHija ? '↳ ' : ''}${it.nombre}</td>
-                            <td style="border:1px solid #ddd; padding:8px; color:${esFilaHija ? '#777' : '#000'};">${esFilaHija ? '↳ ' : ''}${it.plataforma || "---"}</td>
-                            <td style="border:1px solid #ddd; padding:8px; color:${esFilaHija ? '#777' : '#000'};">${esFilaHija ? '↳ ' : ''}${it.categoria || "---"}</td>
-                            <td style="border:1px solid #ddd; padding:8px; text-align:center; font-weight:bold;">${def}</td>
-                            <td style="border:1px solid #ddd; padding:8px; color:red; font-weight:bold;">Defecto</td>
-                        </tr>`;
+                        body.push([`-> ${it.upc}`, `-> ${it.nombre.substring(0,33)}`, it.plataforma || "---", it.categoria || "---", def, "Defecto"]);
                     }
                 }
             });
 
             if(!tieneDiferencias) {
-                tbody.innerHTML += `<tr><td colspan="6" style="border: 1px solid #ddd; padding: 8px; text-align:center;">Inventario Perfecto. Sin diferencias detectadas.</td></tr>`;
+                body.push([{content: 'Inventario Perfecto. Sin diferencias detectadas.', colSpan: 6, styles: {halign: 'center'}}]);
             }
 
-            element.querySelector('#pdf-tot-per').innerText = totalPerdidaMoney.toLocaleString('en-US', {minimumFractionDigits: 2});
-
-            const fGrid = element.querySelector('#pdf-firmas-grid');
-            fGrid.innerHTML = "";
-            Object.values(dataFirmas).forEach(f => {
-                let leyenda = f.asumePerdida ? `<br><b style="color:red; font-size:10px;">(LE CORRESPONDE PÉRDIDA)</b>` : "";
-                fGrid.innerHTML += `<div style="text-align:center;">
-                    <img src="${f.img}" style="width:160px; height:auto; border-bottom:1px solid #000; margin-bottom:5px;"><br>
-                    <small><b>${f.nombre}</b><br>${f.puesto}${leyenda}</small>
-                </div>`;
+            doc.autoTable({
+                startY: 90,
+                head: [['UPC', 'PRODUCTO', 'PLATAFORMA', 'CATEGORÍA', 'CANT', 'OBSERVACIONES']],
+                body: body,
+                theme: 'grid',
+                headStyles: { fillColor: [44, 62, 80], textColor: [255,255,255] },
+                styles: { fontSize: 8, cellPadding: 4 },
+                columnStyles: { 4: { halign: 'center', fontStyle: 'bold' } },
+                didParseCell: function(data) {
+                    if (data.section === 'body' && data.column.index === 5) {
+                        if (data.cell.raw === 'Sobrante') data.cell.styles.textColor = [243, 156, 18];
+                        if (data.cell.raw === 'Pérdida' || data.cell.raw === 'Defecto') data.cell.styles.textColor = [231, 76, 60];
+                        if (data.cell.raw === 'Defecto') data.cell.styles.fontStyle = 'bold';
+                    }
+                }
             });
 
-            window.scrollTo(0, 0);
+            let finalY = doc.lastAutoTable.finalY + 30;
+            if (finalY > 650) { doc.addPage(); finalY = 40; } 
 
-            setTimeout(() => {
-                const opt = { 
-                    margin: 0.3, 
-                    filename: `Caratula_${infoTienda.clave}_${fechaStr.replace(/\//g, '-')}.pdf`, 
-                    image: { type: 'jpeg', quality: 0.98 }, 
-                    html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 800, width: 800, scrollY: 0 }, 
-                    jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } 
-                };
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text(`DEFECTOS: $0.00`, 40, finalY);
+            doc.text(`PÉRDIDA/FALTANTE: $${totalPerdidaMoney.toLocaleString('en-US', {minimumFractionDigits: 2})}`, 40, finalY + 20);
+            doc.text(`SOBRANTE: $0.00`, 40, finalY + 40);
+
+            finalY += 80;
+            let sigX = 40;
+            let firmY = finalY;
+            const keys = Object.keys(dataFirmas);
+            
+            for (let i = 0; i < keys.length; i++) {
+                if (sigX > 400) { sigX = 40; firmY += 120; }
+                if (firmY > 700) { doc.addPage(); firmY = 40; sigX = 40; }
                 
-                html2pdf().set(opt).from(element.children[0]).save().then(async () => {
-                    document.body.removeChild(element); 
-                    
-                    if(!esHistorial) {
-                        const notif = document.getElementById('notif-final');
-                        notif.innerHTML = `Carátula procesada correctamente el ${fechaStr}`;
-                        notif.style.display = "block"; document.getElementById('btn-pdf').style.display = "none";
-                        confetti(); 
+                let f = dataFirmas[keys[i]];
+                try { doc.addImage(f.img, 'PNG', sigX, firmY, 150, 50); } catch(e) {}
+                
+                doc.setDrawColor(0);
+                doc.setLineWidth(1);
+                doc.line(sigX, firmY + 50, sigX + 150, firmY + 50);
+                
+                doc.setFontSize(10);
+                doc.setFont("helvetica", "bold");
+                doc.text(f.nombre, sigX, firmY + 65);
+                
+                doc.setFontSize(8);
+                doc.setFont("helvetica", "normal");
+                doc.text(f.puesto, sigX, firmY + 75);
+                
+                if (f.asumePerdida) {
+                    doc.setTextColor(255, 0, 0);
+                    doc.setFont("helvetica", "bold");
+                    doc.text("(LE CORRESPONDE PÉRDIDA)", sigX, firmY + 85);
+                    doc.setTextColor(0, 0, 0);
+                }
+                sigX += 250;
+            }
 
-                        await fetchAPI({
-                            action: "save_inventory_report", tienda: datosLogin.tienda, clave: datosLogin.clave, nombre_tienda: datosLogin.nombre_tienda, 
-                            status: "PDF Generado", firmas: dataFirmas, items: dataItems, distrito: datosLogin.distrito
-                        });
-                    }
-                }).catch(error => {
-                    document.body.removeChild(element);
-                    alert("Error de memoria al generar el PDF.");
-                    if(!esHistorial){
-                        const btn = document.getElementById('btn-pdf');
-                        btn.innerText = "REINTENTAR GENERAR PDF"; btn.style.background = "var(--main-color)"; btn.disabled = false;
-                    }
-                });
-            }, 800); 
+            doc.save(`Caratula_${infoTienda.clave}_${fechaStr.replace(/\//g, '-')}.pdf`);
+
+            if(!esHistorial) {
+                const notif = document.getElementById('notif-final');
+                notif.innerHTML = `Carátula procesada correctamente el ${fechaStr}`;
+                notif.style.display = "block"; document.getElementById('btn-pdf').style.display = "none";
+                confetti(); 
+
+                fetchAPI({
+                    action: "save_inventory_report", tienda: datosLogin.tienda, clave: datosLogin.clave, nombre_tienda: datosLogin.nombre_tienda, 
+                    status: "PDF Generado", firmas: dataFirmas, items: dataItems, distrito: datosLogin.distrito
+                }).catch(()=>{});
+            }
         }
 
         async function generarCaratulaPDF() {
@@ -668,7 +623,7 @@
             btn.innerText = "PROCESANDO... ESPERA"; btn.style.background = "var(--gray)"; btn.disabled = true;
 
             try {
-                const d = await fetchAPI({action:"search_stock", query:"", filtro:"todos", tienda: tiendaActual});
+                const d = await fetchAPI({action:"search_stock", query:"", filtro:"todos", tienda: tiendaActual, is_report: true});
                 const fechaStr = new Date().toLocaleDateString();
                 procesarYDescargarPDF(d.data, firmasCapturadas, fechaStr, datosLogin, false);
             } catch (error) {
@@ -686,27 +641,33 @@
             procesarYDescargarPDF(items, firmas, fechaStr, rep, true);
         }
 
+        // --- CÁMARA LIBERADA DEL LAG GRÁFICO ---
         function iniciarLector(){ 
             camState = true; 
             document.getElementById('btn-cam-toggle').innerText = "Apagar Cámara"; 
             
-            zxingReader.decodeFromVideoDevice(null, 'v', (res) => { 
-                if(res && !escaneando) { escaneando = true; procesarScan(res.text); } 
-            }); 
-            
             Quagga.init({ 
                 inputStream: { 
-                    name: "Live", type: "LiveStream", target: document.querySelector('#v-container'), 
-                    constraints: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 }, focusMode: "continuous" } 
+                    name: "Live", 
+                    type: "LiveStream", 
+                    target: document.querySelector('#v-container'), 
+                    constraints: { 
+                        facingMode: "environment", 
+                        width: { ideal: 1280 }, // Regresamos a HD para enfoque perfecto
+                        height: { ideal: 720 }
+                    } 
                 }, 
-                decoder: { readers: ["ean_reader", "upc_reader", "code_128_reader"] }, 
-                locate: true, locator: { halfSample: true, patchSize: "medium" } 
+                locator: { halfSample: true, patchSize: "medium" }, 
+                // Usamos 2 núcleos del procesador si están disponibles para mayor velocidad
+                numOfWorkers: navigator.hardwareConcurrency ? Math.min(navigator.hardwareConcurrency, 2) : 2, 
+                decoder: { readers: ["ean_reader", "upc_reader"] }, 
+                locate: true 
             }, (err) => { if (!err) Quagga.start(); }); 
             
             Quagga.onDetected((res) => { if(res && !escaneando) { escaneando = true; procesarScan(res.codeResult.code); } }); 
         }
 
-        function toggleCam(){ if(camState) { zxingReader.reset(); Quagga.stop(); camState = false; document.getElementById('btn-cam-toggle').innerText = "Encender Cámara"; } else { iniciarLector(); } }
+        function toggleCam(){ if(camState) { Quagga.stop(); camState = false; document.getElementById('btn-cam-toggle').innerText = "Encender Cámara"; } else { iniciarLector(); } }
         
         function abrirCam(m){ 
             modoScan = m; 
@@ -723,7 +684,7 @@
             iniciarLector(); 
         }
         
-        function cerrarCam(){ zxingReader.reset(); Quagga.stop(); document.getElementById('cam-box').style.display='none'; }
+        function cerrarCam(){ Quagga.stop(); document.getElementById('cam-box').style.display='none'; }
         function cerrarModalAlias(){ document.getElementById('modal-alias').style.display='none'; iniciarLector(); }
 
         async function procesarScan(upc){
@@ -742,8 +703,8 @@
                     document.getElementById('scan-res').innerHTML = `<div class="card" style="border-left:10px solid ${color}"><b>${d.item.nombre}</b><br><span class="tag">${d.item.plataforma}</span> <span style="color:var(--green); font-weight:bold;">$${d.item.precio}</span><br>Fis: ${d.item.fisico} / Sist: ${d.item.sistema}</div>`;
                     historial.unshift({nombre: d.item.nombre, cant: cant, color: color});
                     if(historial.length > 5) historial.pop(); dibujarHistorial();
-                    setTimeout(()=> { escaneando = false; if(modoScan==='rapido') document.getElementById('scan-res').innerHTML=""; }, 3000);
-                } else { zxingReader.reset(); Quagga.stop(); upcPendiente = finalUPC; document.getElementById('txt-upc-err').innerText = finalUPC; document.getElementById('modal-alias').style.display = 'block'; escaneando = false; }
+                    setTimeout(()=> { escaneando = false; if(modoScan==='rapido') document.getElementById('scan-res').innerHTML=""; }, 1500); 
+                } else { Quagga.stop(); upcPendiente = finalUPC; document.getElementById('txt-upc-err').innerText = finalUPC; document.getElementById('modal-alias').style.display = 'block'; escaneando = false; }
             } catch(e) { alert(e.message); escaneando = false; }
         }
 
@@ -797,7 +758,7 @@
         async function generarFinal(){
             irA('scr-final'); document.getElementById('final-titulo').innerText = "Analizando...";
             try {
-                const d = await fetchAPI({action:"search_stock", query:"", filtro:"todos", tienda: tiendaActual});
+                const d = await fetchAPI({action:"search_stock", query:"", filtro:"todos", tienda: tiendaActual, is_report: true});
                 const dataLimpia = d.data.filter(it => !(it.categoria && String(it.categoria).toLowerCase().includes("telefon")) && !(it.plataforma && String(it.plataforma).toLowerCase().includes("telefon")));
                 
                 let faltantes = [], sobrantes = [], defectuosos = [], totalPerdidaMoney = 0;

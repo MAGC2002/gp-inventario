@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Inventario Pro Beta v1.9.9.13 Full Detail</title>
+    <title>Inventario Pro Beta v1.9.9.14 (Camera Selector)</title>
     <script src="https://unpkg.com/@zxing/library@latest"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
@@ -64,7 +64,7 @@
     <div id="scr-login" class="screen active">
         <div class="mascot-container" style="margin-top: 50px;">
             <img src="https://cdn-icons-png.flaticon.com/512/2043/2043231.png" class="mascot-img" alt="Mascota Beta">
-            <h2 style="color:var(--main-color); margin-top:10px;">Inventario Pro <small>v1.9.9.13 Full Detail</small></h2>
+            <h2 style="color:var(--main-color); margin-top:10px;">Inventario Pro <small>v1.9.9.14</small></h2>
         </div>
         <div class="card">
             <input type="text" id="l-u" placeholder="Usuario (ID)">
@@ -189,9 +189,13 @@
     <div id="cam-box">
         <div id="v-container"><video id="v" muted playsinline></video><div class="scanner-target"></div></div>
         <div id="scan-info">
+            
+            <select id="lista-camaras" onchange="cambiarCamara()" style="width:100%; padding:8px; border-radius:5px; margin-bottom:10px; border: 2px solid var(--accent); font-weight:bold; background:#ecf0f1;">
+                <option value="">Cargando lentes...</option>
+            </select>
+
             <div style="display:flex; justify-content:space-between; margin-bottom:10px; gap: 8px;">
                 <button id="btn-cam-toggle" onclick="toggleCam()" style="background:var(--orange); color:white; border:none; padding:8px; border-radius:5px; font-weight:bold; flex: 1;">Apagar Cámara</button>
-                <button onclick="reiniciarCamara()" style="background:#f39c12; color:white; border:none; padding:8px; border-radius:5px; font-weight:bold; flex: 1;">🔄 Reenfocar</button>
                 <button onclick="cerrarCam()" style="color:var(--red); border:none; background:none; font-weight:bold; font-size:18px; margin-left: 5px;">CERRAR X</button>
             </div>
             <div style="display:flex; gap:10px; margin-bottom:10px;">
@@ -200,7 +204,7 @@
                     <input type="checkbox" id="chk-u"> <b style="margin-left:5px;">MODO USADO (U)</b>
                 </div>
             </div>
-            <input type="text" id="manual-upc" placeholder="Manual + Enter..." onkeypress="if(event.key==='Enter') { procesarScan(this.value); this.value=''; }">
+            <input type="text" id="manual-upc" placeholder="Manual / Pistola + Enter..." onkeypress="if(event.key==='Enter') { procesarScan(this.value); this.value=''; }">
             <div id="scan-res"></div>
             <div style="margin-top:15px;">
                 <h4 style="margin:0 0 5px 0; border-bottom:1px solid #ccc; font-size:14px; padding-bottom:5px;">Últimos 5 escaneos</h4>
@@ -232,13 +236,14 @@
             } catch (error) { throw new Error("No hay conexión segura con el servidor. Revisa tu internet."); }
         }
         
-        // MOTOR ZXING CON DELAY DE 500MS PARA EVITAR SATURACIÓN DE IPHONE
-        const codeReader = new ZXing.BrowserMultiFormatReader(null, 500);
+        // MOTOR ZXING RESTAURADO (Sin delay manual que rompía el ciclo)
+        const codeReader = new ZXing.BrowserMultiFormatReader();
         
         let tiendaActual = "", escaneando = false, modoScan = "", upcPendiente = "", miRol = "", camState = true;
         let historial = [], datosLogin = {}, firmasCapturadas = {}, reportesCargados = [];
         let audioActual = null, muted = false, tipoReg = 'normal';
         let searchTimeout = null;
+        let dispositivosDeVideo = []; // Guardará la lista de cámaras del teléfono
 
         const AUDIO_LINKS = {
             kirby: "https://www.dropbox.com/scl/fi/e84onwbr1r0bc7ughw9r8/Kirby-s-Adventure-NES-Music-Victory-Dance.mp3?rlkey=kzuo6tltmtvp3blyz5v6z0xcd&raw=1",
@@ -442,7 +447,7 @@
         function initCanvas(id) {
             const canvas = document.getElementById(id); const ctx = canvas.getContext("2d"); let drawing = false; ctx.lineWidth = 2; ctx.strokeStyle = "#000";
             const start = (e) => { drawing = true; ctx.beginPath(); };
-            const move = (e) => { if (!drawing) return; const rect = canvas.getBoundingClientRect(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; ctx.lineTo(clientX - rect.left, clientY - rect.top); ctx.stroke(); };
+            const move = (e) => { if (!drawing) return; const rect = canvas.getBoundingClientRect(); const clientX = e.touches ? e.touches[0].clientX : e.clientY; const clientY = e.touches ? e.touches[0].clientY : e.clientY; ctx.lineTo(clientX - rect.left, clientY - rect.top); ctx.stroke(); };
             const stop = () => drawing = false;
             canvas.addEventListener("mousedown", start); canvas.addEventListener("mousemove", move); window.addEventListener("mouseup", stop);
             canvas.addEventListener("touchstart", start); canvas.addEventListener("touchmove", (e) => { e.preventDefault(); move(e); }, {passive: false}); canvas.addEventListener("touchend", stop);
@@ -545,6 +550,7 @@
                 body.push([{content: 'Inventario Perfecto. Sin diferencias detectadas.', colSpan: 6, styles: {halign: 'center'}}]);
             }
 
+            // COLOR DEL PDF (DEFECTO EN NEGRO CON NEGRITAS)
             doc.autoTable({
                 startY: 90,
                 head: [['UPC', 'PRODUCTO', 'PLATAFORMA', 'CATEGORÍA', 'CANT', 'OBSERVACIONES']],
@@ -559,7 +565,6 @@
                     if (data.section === 'body' && data.column.index === 5) {
                         if (data.cell.raw === 'Sobrante') data.cell.styles.textColor = [243, 156, 18];
                         if (data.cell.raw === 'Pérdida') data.cell.styles.textColor = [231, 76, 60];
-                        // SE APLICA EL PARCHE DE COLOR NEGRO Y NEGRITAS PARA LOS DEFECTOS
                         if (data.cell.raw === 'Defecto') {
                             data.cell.styles.textColor = [0, 0, 0];
                             data.cell.styles.fontStyle = 'bold';
@@ -639,57 +644,76 @@
             }
         }
 
-        function reGenerarPDF(idReporte) {
-            const rep = reportesCargados.find(r => r.id === idReporte);
-            if(!rep) return alert("Reporte no encontrado.");
-            const fechaStr = new Date(rep.fecha).toLocaleDateString();
-            const items = JSON.parse(rep.items || "[]");
-            const firmas = JSON.parse(rep.firmas || "{}");
-            procesarYDescargarPDF(items, firmas, fechaStr, rep, true);
+        // ==========================================
+        // NUEVO SISTEMA DE CÁMARAS Y SELECTOR
+        // ==========================================
+        function abrirCam(m){ 
+            modoScan = m; 
+            document.getElementById('cam-box').style.display='block'; 
+            let b = document.getElementById('bip'); 
+            b.muted = true; 
+            b.play().then(() => { b.pause(); b.currentTime = 0; b.muted = false; }).catch(() => {}); 
+            
+            // Buscar todas las cámaras físicas del teléfono al abrir el recuadro
+            codeReader.getVideoInputDevices()
+                .then((videoInputDevices) => {
+                    dispositivosDeVideo = videoInputDevices;
+                    const select = document.getElementById('lista-camaras');
+                    select.innerHTML = '';
+                    
+                    if(dispositivosDeVideo.length > 0) {
+                        // Llenar el menú desplegable con las cámaras encontradas
+                        dispositivosDeVideo.forEach((element, index) => {
+                            const option = document.createElement('option');
+                            option.value = element.deviceId;
+                            option.text = element.label || `Lente de Cámara ${index + 1}`;
+                            select.appendChild(option);
+                        });
+
+                        // Intentar autoseleccionar la cámara principal trasera por defecto
+                        let camaraTrasera = dispositivosDeVideo.find(c => c.label.toLowerCase().includes('back') || c.label.toLowerCase().includes('trasera'));
+                        if (camaraTrasera) {
+                            select.value = camaraTrasera.deviceId;
+                        } else if (dispositivosDeVideo.length > 1) {
+                            select.value = dispositivosDeVideo[dispositivosDeVideo.length - 1].deviceId;
+                        }
+
+                        // Iniciar la lectura con la cámara seleccionada
+                        iniciarLectorEspecifico(select.value);
+                    } else {
+                        select.innerHTML = '<option value="">Cámaras no detectadas</option>';
+                        alert("El navegador no detectó ninguna cámara. Revisa los permisos.");
+                    }
+                })
+                .catch((err) => {
+                    console.error("Error obteniendo cámaras: ", err);
+                });
         }
 
-        // SE APLICA EL PARCHE DE LIMITACIÓN A 15 FPS PARA PREVENIR QUE EL IPHONE SE CONGELE
-        function iniciarLector(){ 
+        function cambiarCamara() {
+            const idCamara = document.getElementById('lista-camaras').value;
+            if (idCamara) {
+                codeReader.reset(); // Apagar la actual
+                setTimeout(() => {
+                    iniciarLectorEspecifico(idCamara); // Prender la nueva
+                }, 300);
+            }
+        }
+
+        function iniciarLectorEspecifico(deviceId){ 
             camState = true; 
             document.getElementById('btn-cam-toggle').innerText = "Apagar Cámara"; 
             
-            const constraints = {
-                video: {
-                    facingMode: { ideal: "environment" }, 
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 },
-                    frameRate: { max: 15 },
-                    advanced: [{ focusMode: "continuous" }] 
-                }
-            };
-
-            codeReader.decodeFromConstraints(constraints, 'v', (result, err) => {
+            // Usamos decodeFromVideoDevice que es mucho más estable y no causa conflictos térmicos
+            codeReader.decodeFromVideoDevice(deviceId, 'v', (result, err) => {
                 if (result && !escaneando) {
                     let codigo = result.getText();
                     escaneando = true;
                     procesarScan(codigo);
                 }
             }).catch((err) => {
-                console.warn("Fallo el constraint avanzado, intentando el método clásico: ", err);
-                codeReader.decodeFromVideoDevice(undefined, 'v', (result, fallbackErr) => {
-                    if (result && !escaneando) {
-                        let codigo = result.getText();
-                        escaneando = true;
-                        procesarScan(codigo);
-                    }
-                });
+                console.error("Error al arrancar el lente: ", err);
             });
-        }
-
-        function reiniciarCamara() {
-            if (codeReader) {
-                codeReader.reset();
-            }
-            setTimeout(() => {
-                if(document.getElementById('cam-box').style.display === 'block') {
-                    iniciarLector();
-                }
-            }, 500);
         }
 
         function toggleCam(){ 
@@ -698,24 +722,15 @@
                 camState = false; 
                 document.getElementById('btn-cam-toggle').innerText = "Encender Cámara"; 
             } else { 
-                iniciarLector(); 
+                cambiarCamara(); // Volver a encender la que estaba seleccionada
             } 
-        }
-
-        function abrirCam(m){ 
-            modoScan = m; 
-            document.getElementById('cam-box').style.display='block'; 
-            let b = document.getElementById('bip'); 
-            b.muted = true; 
-            b.play().then(() => { b.pause(); b.currentTime = 0; b.muted = false; }).catch(() => {}); 
-            iniciarLector(); 
         }
 
         function cerrarCam(){ 
             codeReader.reset(); 
             document.getElementById('cam-box').style.display='none'; 
         }
-        function cerrarModalAlias(){ document.getElementById('modal-alias').style.display='none'; iniciarLector(); }
+        function cerrarModalAlias(){ document.getElementById('modal-alias').style.display='none'; cambiarCamara(); }
 
         async function procesarScan(upc){
             if(!upc) return;
@@ -855,7 +870,7 @@
         }
 
         async function buscarParaAlias(q){ if(q.length < 3) return; try{ const d = await fetchAPI({action:"search_stock", query:q, tienda: tiendaActual}); document.getElementById('res-alias').innerHTML = d.data.map(it => `<div class="card" style="color:black;" onclick="ligarAlias('${it.upc}')"><b>${it.nombre}</b><br><span class="tag">${it.plataforma}</span> <small style="color:var(--orange)">UPC: ${it.upc}</small></div>`).join(''); }catch(e){} }
-        async function ligarAlias(upcReal){ try{ await fetchAPI({action:"link_alias", nuevo_upc: upcPendiente, upc_real: upcReal}); document.getElementById('modal-alias').style.display = 'none'; iniciarLector(); procesarScan(upcPendiente); }catch(e){alert(e.message);} }
+        async function ligarAlias(upcReal){ try{ await fetchAPI({action:"link_alias", nuevo_upc: upcPendiente, upc_real: upcReal}); document.getElementById('modal-alias').style.display = 'none'; cambiarCamara(); procesarScan(upcPendiente); }catch(e){alert(e.message);} }
     </script>
 </body>
 </html>

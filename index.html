@@ -200,7 +200,7 @@
                     <input type="checkbox" id="chk-u"> <b style="margin-left:5px;">MODO USADO (U)</b>
                 </div>
             </div>
-            <input type="text" id="manual-upc" placeholder="Manual / Pistola + Enter..." onkeypress="if(event.key==='Enter') { procesarScan(this.value); this.value=''; }">
+            <input type="text" id="manual-upc" placeholder="Manual + Enter..." onkeypress="if(event.key==='Enter') procesarScan(this.value)">
             <div id="scan-res"></div>
             <div style="margin-top:15px;">
                 <h4 style="margin:0 0 5px 0; border-bottom:1px solid #ccc; font-size:14px; padding-bottom:5px;">Últimos 5 escaneos</h4>
@@ -232,7 +232,7 @@
             } catch (error) { throw new Error("No hay conexión segura con el servidor. Revisa tu internet."); }
         }
         
-        // MOTOR ORIGINAL RESTAURADO SIN DELAYS RAROS
+        // MOTOR ZXING
         const codeReader = new ZXing.BrowserMultiFormatReader();
         
         let tiendaActual = "", escaneando = false, modoScan = "", upcPendiente = "", miRol = "", camState = true;
@@ -442,7 +442,7 @@
         function initCanvas(id) {
             const canvas = document.getElementById(id); const ctx = canvas.getContext("2d"); let drawing = false; ctx.lineWidth = 2; ctx.strokeStyle = "#000";
             const start = (e) => { drawing = true; ctx.beginPath(); };
-            const move = (e) => { if (!drawing) return; const rect = canvas.getBoundingClientRect(); const clientX = e.touches ? e.touches[0].clientX : e.clientX; const clientY = e.touches ? e.touches[0].clientY : e.clientY; ctx.lineTo(clientX - rect.left, clientY - rect.top); ctx.stroke(); };
+            const move = (e) => { if (!drawing) return; const rect = canvas.getBoundingClientRect(); const clientX = e.touches ? e.touches[0].clientX : e.clientY; const clientY = e.touches ? e.touches[0].clientY : e.clientY; ctx.lineTo(clientX - rect.left, clientY - rect.top); ctx.stroke(); };
             const stop = () => drawing = false;
             canvas.addEventListener("mousedown", start); canvas.addEventListener("mousemove", move); window.addEventListener("mouseup", stop);
             canvas.addEventListener("touchstart", start); canvas.addEventListener("touchmove", (e) => { e.preventDefault(); move(e); }, {passive: false}); canvas.addEventListener("touchend", stop);
@@ -558,12 +558,8 @@
                 didParseCell: function(data) {
                     if (data.section === 'body' && data.column.index === 5) {
                         if (data.cell.raw === 'Sobrante') data.cell.styles.textColor = [243, 156, 18];
-                        if (data.cell.raw === 'Pérdida') data.cell.styles.textColor = [231, 76, 60];
-                        // PARCHE MANTENIDO: Defectos en negro corporativo
-                        if (data.cell.raw === 'Defecto') {
-                            data.cell.styles.textColor = [0, 0, 0];
-                            data.cell.styles.fontStyle = 'bold';
-                        }
+                        if (data.cell.raw === 'Pérdida' || data.cell.raw === 'Defecto') data.cell.styles.textColor = [231, 76, 60];
+                        if (data.cell.raw === 'Defecto') data.cell.styles.fontStyle = 'bold';
                     }
                 }
             });
@@ -648,30 +644,47 @@
             procesarYDescargarPDF(items, firmas, fechaStr, rep, true);
         }
 
-        // ==========================================
-        // MOTOR DE CÁMARA RESTAURADO (ESTABLE 100%)
-        // ==========================================
+        // ====== LECTOR ZXING PARCHADO PARA iOS ======
         function iniciarLector(){ 
             camState = true; 
             document.getElementById('btn-cam-toggle').innerText = "Apagar Cámara"; 
             
-            // Método original que te funcionaba perfecto
-            codeReader.decodeFromVideoDevice(undefined, 'v', (result, err) => {
+            // CONSTRAINTS DUROS PARA APPLE
+            const constraints = {
+                video: {
+                    facingMode: { ideal: "environment" }, 
+                    width: { ideal: 1280 },
+                    height: { ideal: 720 },
+                    advanced: [{ focusMode: "continuous" }] 
+                }
+            };
+
+            // Usamos decodeFromConstraints para meterle presión al lente del iPhone
+            codeReader.decodeFromConstraints(constraints, 'v', (result, err) => {
                 if (result && !escaneando) {
                     let codigo = result.getText();
                     escaneando = true;
                     procesarScan(codigo);
                 }
             }).catch((err) => {
-                console.error("Error en cámara: ", err);
+                console.warn("Fallo el constraint avanzado, intentando el método clásico: ", err);
+                // FALLBACK: Si no jala por alguna razón (ej. laptop), usa el método viejito seguro
+                codeReader.decodeFromVideoDevice(undefined, 'v', (result, fallbackErr) => {
+                    if (result && !escaneando) {
+                        let codigo = result.getText();
+                        escaneando = true;
+                        procesarScan(codigo);
+                    }
+                });
             });
         }
 
-        // EL BOTÓN TÁCTICO PARA AYUDAR AL IPHONE SIN ROMPER CÓDIGO
+        // NUEVA FUNCIÓN PARA EL BOTÓN DE REENFOQUE
         function reiniciarCamara() {
             if (codeReader) {
                 codeReader.reset();
             }
+            // Le damos 500 milisegundos para que el lente físico se relaje y vuelva a arrancar
             setTimeout(() => {
                 if(document.getElementById('cam-box').style.display === 'block') {
                     iniciarLector();
